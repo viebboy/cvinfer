@@ -1,0 +1,6 @@
+numpy
+opencv_python
+onnxruntime
+dill
+drawline
+loguru
