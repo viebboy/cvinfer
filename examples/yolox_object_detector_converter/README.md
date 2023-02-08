@@ -39,4 +39,5 @@ Note that input to the preprocessing function is always a (or a list of) `common
 For postprocessing, the function should always receive 3 arguments:
 
 - the output from running onnx session
-- the meta
+- the metadata returned from the preprocessing function
+- the config dictionary used in postprocessing such as confidence threshold
