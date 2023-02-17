@@ -24,7 +24,7 @@ import sys
 import onnxruntime as ORT
 import dill
 import cv2
-from time import time
+import time
 from drawline import draw_rect
 import json
 
