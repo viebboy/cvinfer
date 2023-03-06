@@ -263,3 +263,35 @@ class WebcamReader(VideoReader):
             max_queue_size,
             max_elapsed_time,
         )
+
+
+class VideoWriter:
+    def __init__(self, video_file, fps):
+        self._video_file = video_file
+        self._metadata = {'fps': fps, 'frame_count': 0}
+        self._cv_writer = None
+
+    def path(self):
+        return self._video_file
+
+    def metadata(self):
+        return self._metadata
+
+    def write(self, frame):
+        if self._cv_writer is None:
+            height = frame.height()
+            width = frame.width()
+            self._cv_writer = cv2.VideoWriter(
+                self._video_file,
+                cv2.VideoWriter_fourcc(*'mp4v'),
+                self._metadata['fps'],
+                (width, height),
+            )
+        # note that opencv has default BGR format so we need to flip
+        # because Frame data is in RGB
+        self._cv_writer.write(frame.data()[:, :, ::-1])
+        self._metadata['frame_count'] += 1
+
+    def close(self):
+        if self._cv_writer is not None:
+            self._cv_writer.release()

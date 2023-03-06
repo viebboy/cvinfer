@@ -17,16 +17,19 @@ Apache License 2.0
 """
 
 from __future__ import annotations
+from typing import Union
 import numpy as np
 import os
 from loguru import logger
-import sys
 import onnxruntime as ORT
-import dill
 import cv2
 import time
 from drawline import draw_rect
 import json
+import string
+import random
+import importlib.util
+
 
 logger.warning('Convention for BoundingBox: (x, y) corresponds to coordinates on the (width, height) dimension')
 
@@ -37,6 +40,19 @@ INTERPOLATIONS = {
     'area': cv2.INTER_AREA,
     'lanczos': cv2.INTER_LANCZOS4,
 }
+
+
+def load_module(module_file, attribute, module_name=None):
+    if module_name is None:
+        module_name = ''.join(random.sample(string.ascii_letters, 10))
+
+    spec = importlib.util.spec_from_file_location(module_name, module_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    if hasattr(module, attribute):
+        return getattr(module, attribute)
+    else:
+        raise RuntimeError(f'Cannot find attribute {attribute} in the given module at {module_file}')
 
 class TimeMeasure:
     """
@@ -94,18 +110,19 @@ class OnnxModel:
     """
     base implementation of the onnx inference model
     """
-    def __init__(self, onnx_path, execution_provider='CPUExecutionProvider'):
+    def __init__(
+        self,
+        onnx_path,
+        processor_path=None,
+        configuration_path=None,
+        execution_provider='CPUExecutionProvider',
+    ):
 		# load preprocessing function
-        preprocess_file = onnx_path.replace('.onnx', '.preprocess')
-        assert os.path.exists(preprocess_file)
-        with open(preprocess_file, 'rb') as fid:
-            self.preprocess_function = dill.load(fid)
-
-        # similarly, load postprocessing function
-        postprocess_file = onnx_path.replace('.onnx', '.postprocess')
-        assert os.path.exists(postprocess_file)
-        with open(postprocess_file, 'rb') as fid:
-            self.postprocess_function = dill.load(fid)
+        if processor_path is None:
+            processor_path = onnx_path.replace('.onnx', '.processor.py')
+        assert os.path.exists(processor_path)
+        self.preprocess_function = load_module(processor_path, 'preprocess')
+        self.postprocess_function = load_module(processor_path, 'postprocess')
 
         #load onnx model from onnx_path
         avail_providers = ORT.get_available_providers()
@@ -116,60 +133,56 @@ class OnnxModel:
         logger.info(f'trying to run with execution provider: {execution_provider}')
         self.session =  ORT.InferenceSession(onnx_path, providers=[execution_provider,])
 
-        self.input_name = self.session.get_inputs()[0].name
+        self.input_names = [input_.name for input_ in self.session.get_inputs()]
 
-        # load config from json file
-        # config_path is a json file
-        config_file = onnx_path.replace('.onnx', '.configuration.json')
-        assert os.path.exists(config_file)
-        with open(config_file, 'r') as fid:
+        if configuration_path is None:
+            configuration_path = onnx_path.replace('.onnx', '.configuration.json')
+
+        assert os.path.exists(configuration_path)
+        with open(configuration_path, 'r') as fid:
             # self.config is a dictionary
             self.config = json.loads(fid.read())
 
     @logger.catch
-    def preprocess(self, frame: Frame):
-        assert isinstance(frame, Frame)
-        return self.preprocess_function(frame, self.config['preprocessing'])
+    def preprocess(self, inputs: Union[Frame, list[Frame]]):
+        assert isinstance(inputs, Frame)
+        return self.preprocess_function(inputs, self.config['preprocessing'])
 
     @logger.catch
     def postprocess(self, model_output, metadata):
         return self.postprocess_function(model_output, metadata, self.config['postprocessing'])
 
     @logger.catch
-    def __call__(self, frame: Frame):
-        # input must be a frame
-        assert isinstance(frame, Frame)
+    def __call__(self, inputs: Union[Frame, list[Frame]]):
+        # input must be a frame or a list of frames
+        if isinstance(inputs, list):
+            for frame in inputs:
+                assert isinstance(frame, Frame)
+        else:
+            assert isinstance(inputs, Frame)
 
         # calling preprocess
-        model_input, metadata = self.preprocess_function(
-            frame,
+        model_inputs, metadata = self.preprocess_function(
+            inputs,
             self.config['preprocessing']
         )
 
         # compute ONNX Runtime output prediction
-        ort_inputs = {self.input_name: model_input}
+        if len(self.input_names) == 1:
+            ort_inputs = {self.input_names[0]: model_inputs}
+        else:
+            ort_inputs = {name: value for name, value in zip(self.input_names, model_inputs)}
 
-        model_output = self.session.run(None, ort_inputs)
-        # e.g., bounding_boxes, confidences = model.forward(inputs)
-        # bounding_boxes shape: (N, 4)
-        # confidences shape: (N,)
-        # --> len(x) = 2
-        # bounding_boxes = x[0]
-        # confidences = x[1]
+        model_outputs = self.session.run(None, ort_inputs)
 
-        # detections = model.forward(image)
-        # detections shape: (N, 5)
-        # len(x) = 1
-
-        # postprocess receives 2 inputs: the output from the model and a
-        # dictionary that contains hyperparameters like thresholding
-        x = self.postprocess_function(
-            model_output,
+        outputs = self.postprocess_function(
+            model_outputs,
             metadata,
             self.config['postprocessing']
         )
 
-        return x
+        return outputs
+
 
 class Frame:
     """
@@ -223,6 +236,12 @@ class Frame:
     def data(self):
         return self._data
 
+    def rgb(self):
+        return self._data
+
+    def bgr(self):
+        return self._data[:, :, ::-1]
+
     def height(self):
         return self._data.shape[0]
 
@@ -251,6 +270,39 @@ class Frame:
             x1 = min(x1, self.width())
             y1 = min(y1, self.height())
             return Frame(self.data()[y0: y1, x0: x1, :])
+
+    def draw_point(self, point: Point):
+        self._data = cv2.circle(
+            self.data(),
+            center=(point.x(), point.y()),
+            radius=point.radius(),
+            color=point.color().rgb(),
+            thickness=-1,
+        )
+
+    def draw_points(self, points: list[Point]):
+        for point in points:
+            self.draw_point(point)
+
+    def draw_segment(
+        self,
+        start_point: Point,
+        end_point: Point,
+        color: Color,
+        thickness: int,
+        draw_point: bool=True,
+    ):
+        if draw_point:
+            self.draw_point(start_point)
+            self.draw_point(end_point)
+
+        self._data = cv2.line(
+            img=self.data(),
+            pt1=(start_point.x(), start_point.y()),
+            pt2=(end_point.x(), end_point.y()),
+            color=color.rgb(),
+            thickness=thickness,
+        )
 
     def draw_bounding_box(self, box: BoundingBox):
         x0, y0 = box.top_left().x(), box.top_left().y()
@@ -399,23 +451,44 @@ class BoundingBox:
     def thickness(self):
         return self._thickness
 
+    def set_thickness(self, thickness):
+        self._thickness = thickness
+
     def label(self):
         return self._label
+
+    def set_label(self, label: str):
+        self._label = label
 
     def color(self):
         return self._color
 
+    def set_color(self, color: Color):
+        self._color = color
+
     def label_color(self):
         return self._label_color
+
+    def set_label_color(self, color: Color):
+        self._label_color = color
 
     def label_background_color(self):
         return self._label_background_color
 
+    def set_label_background_color(self, color: Color):
+        self._label_background_color = color
+
     def label_font_size(self):
         return self._label_font_size
 
+    def set_label_font_size(self, font_size: int):
+        self._label_front_size = font_size
+
     def label_transparency(self):
         return self._label_transparency
+
+    def set_label_transparency(self, transparency):
+        self._label_transparency = transparency
 
     def __str__(self):
         return (
@@ -423,7 +496,8 @@ class BoundingBox:
             'top_left={}, bottom_right={}), '.format(self.top_left(), self.bottom_right()) +
             'label={}, label_color={}), '.format(self.label(), self.label_color()) +
             'label_background_color={}, '.format(self.label_background_color()) +
-            'label_font_size={})'.format(self.label_font_size())
+            'label_font_size={}, '.format(self.label_font_size()) +
+            'label_transparency={})'.format(self.label_transparency())
         )
 
 
@@ -432,20 +506,44 @@ class Point:
     abstraction for a point in an image
     a point must have non-negative coordinates
     """
-    def __init__(self, x: int, y: int):
+    def __init__(self, x: int, y: int, color=Color(), radius=2):
         # note x, y correspond to points on the width and height axis
         assert isinstance(x, int)
         assert isinstance(y, int)
         assert x >= 0
         assert y >= 0
+        assert radius > 0
         self._x = x
         self._y = y
+        self._color = color
+        self._radius = radius
+
+    def color(self):
+        return self._color
+
+    def set_color(self, color: Color):
+        self._color = color
+
+    def radius(self):
+        return self._radius
+
+    def set_radius(self, r: int):
+        assert r > 0
+        self._radius = r
 
     def x(self):
         return self._x
 
+    def set_x(self, x):
+        assert x >= 0
+        self._x = x
+
     def y(self):
         return self._y
+
+    def set_y(self, y):
+        assert y >= 0
+        self._y = y
 
     def translate(self, reference: Point):
         """
@@ -455,22 +553,51 @@ class Point:
         this is useful when mapping from a coorindate in a cropped image to the coorindate in
         the original image --> we need to pass the top left point as the reference point
         """
-        return Point(self.x + reference.x, self.y + reference.y)
+        return Point(self.x() + reference.x(), self.y() + reference.y())
 
     def __str__(self):
-        return 'Point(x={}, y={})'.format(self.x(), self.y())
+        return 'Point(x={}, y={}, color={}, radius={})'.format(
+            self.x(),
+            self.y(),
+            self.color(),
+            self.radius()
+        )
 
 
 class KeyPoint(Point):
     """
     Abstraction for keypoint. A keypoint is a point with confidence score
     """
-    def __init__(self, x: int, y: int, confidence: float):
+    def __init__(self, x: int, y: int, confidence: float, color: Color(), radius: int=2):
         assert isinstance(confidence, float)
         assert 0 <= confidence <= 1
         self._confidence = confidence
-        super().__init__(x, y)
+        super().__init__(x, y, color, radius)
 
     def confidence(self):
         return self._confidence
 
+    def translate(self, reference: Point):
+        """
+        change the coordinate system so that the current origin (0, 0) has a coordinate equal to
+        `reference` point in the new system
+
+        this is useful when mapping from a coorindate in a cropped image to the coorindate in
+        the original image --> we need to pass the top left point as the reference point
+        """
+        return KeyPoint(
+            self.x() + reference.x(),
+            self.y() + reference.y(),
+            self._confidence,
+            self.color(),
+            self.radius(),
+        )
+
+    def __str__(self):
+        return 'KeyPoint(x={}, y={}, confidence={:.2f} %, color={}, radius={})'.format(
+            self.x(),
+            self.y(),
+            100 * self.confidence(),
+            self.color(),
+            self.radius(),
+        )
