@@ -134,3 +134,4 @@ data/
 # temp dir
 tmp/
 /tmp
+.DS_Store
