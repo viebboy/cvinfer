@@ -36,12 +36,16 @@ This module provides common interfaces for CV tasks:
 - `cvinfer.common.KeyPoint`: a keypoint is a Point with confidence score
 - `cvinfer.common.OnnxModel`: abstraction to use an ONNX model. See more in the `examples`. 
 
+Please take a look at source code to see what kind of methods are supported by each class
+
 ## `cvinfer.io` module
 
 - `VideoReader`: convenient class for video reader
 - `RTSPReader`: abstraction to read from RTSP stream
 - `WebcamReader`: abstraction for webcam
 - `VideoWriter`: a video writer convenient class.
+
+Please take a look at `examples/io_examples.py` for the demo usage of IO classes. 
 
 
 ## Convention for artifact generation 
