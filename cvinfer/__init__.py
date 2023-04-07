@@ -60,5 +60,5 @@ if has_dep:
             logger.warning(
                 f'local commit diverges from remote commit in package {package}. Please consider updating'
             )
-            logger.warning('local commit on branch {branch}: {local_commit}')
-            logger.warning('remote commit on branch {branch}: {remote_commit}')
+            logger.warning(f'local commit on branch {branch}: {local_commit}')
+            logger.warning(f'remote commit on branch {branch}: {remote_commit}')
