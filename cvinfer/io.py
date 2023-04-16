@@ -212,6 +212,7 @@ class VideoReader:
                     break
 
 
+
 class RTSPReader(VideoReader):
     """
     reader for rtsp stream
@@ -236,6 +237,22 @@ class RTSPReader(VideoReader):
             max_queue_size,
             max_elapsed_time,
         )
+
+    def flush(self):
+        """
+        flush all frames in the queue and return the latest one
+        """
+        if self.use_threading:
+            # if use threading, wait within some period to get a frame
+            # terminate if elapsed time exceeds the period
+            frame = None
+            while not self._frame_queue.empty():
+                frame = self._frame_queue.get()
+            if frame is None:
+                frame = self.next()
+            return frame
+        else:
+            return self.next()
 
 
 class WebcamReader(VideoReader):
@@ -263,6 +280,22 @@ class WebcamReader(VideoReader):
             max_queue_size,
             max_elapsed_time,
         )
+
+    def flush(self):
+        """
+        flush all frames in the queue and return the latest one
+        """
+        if self.use_threading:
+            # if use threading, wait within some period to get a frame
+            # terminate if elapsed time exceeds the period
+            frame = None
+            while not self._frame_queue.empty():
+                frame = self._frame_queue.get()
+            if frame is None:
+                frame = self.next()
+            return frame
+        else:
+            return self.next()
 
 
 class VideoWriter:

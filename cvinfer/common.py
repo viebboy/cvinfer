@@ -120,7 +120,10 @@ class OnnxModel:
 		# load preprocessing function
         if processor_path is None:
             processor_path = onnx_path.replace('.onnx', '.processor.py')
-        assert os.path.exists(processor_path)
+
+        if not os.path.exists(processor_path):
+            raise FileNotFoundError(processor_path)
+
         self.preprocess_function = load_module(processor_path, 'preprocess')
         self.postprocess_function = load_module(processor_path, 'postprocess')
 
@@ -138,7 +141,9 @@ class OnnxModel:
         if configuration_path is None:
             configuration_path = onnx_path.replace('.onnx', '.configuration.json')
 
-        assert os.path.exists(configuration_path)
+        if not os.path.exists(configuration_path):
+            raise FileNotFoundError(configuration_path)
+
         with open(configuration_path, 'r') as fid:
             # self.config is a dictionary
             self.config = json.loads(fid.read())
