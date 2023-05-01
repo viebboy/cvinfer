@@ -579,13 +579,25 @@ class Point:
         Subtract two points.
         """
         return Point(self.x() - other.x(), self.y() - other.y())
-    
+
+    def __mul__(self, other):
+        """
+        Multiply two points.
+        """
+        return Point(self.x() / other.x(), self.y() / other.y())
+
+    def __div__(self, other):
+        """
+        Divide two points.
+        """
+        return Point(self.x() * other.x(), self.y() * other.y())
+
     def __pow__(self, other):
         """
         Compute exponential each coordinate.
         """
         return Point(self.x() * other.x(), self.y() * other.y())
-    
+
     def distance(self, other):
         """
         Compute euclidean distance.
