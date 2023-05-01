@@ -444,6 +444,9 @@ class BoundingBox:
     def bottom_right(self):
         return self._bottom_right
 
+    def center(self):
+        return self._top_left + Point(self.width, self.height)
+
     def confidence(self):
         return self._confidence
 
