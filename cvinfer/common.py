@@ -568,6 +568,31 @@ class Point:
             self.radius()
         )
 
+    def __add__(self, other):
+        """
+        Add two points.
+        """
+        return Point(self.x() + other.x(), self.y() + other.y())
+
+    def __sub__(self, other):
+        """
+        Subtract two points.
+        """
+        return Point(self.x() - other.x(), self.y() - other.y())
+    
+    def __pow__(self, other):
+        """
+        Compute exponential each coordinate.
+        """
+        return Point(self.x() * other.x(), self.y() * other.y())
+    
+    def distance(self, other):
+        """
+        Compute euclidean distance.
+        """
+        delta = (self - other) ** 2
+        return np.sqrt(delta.x() + delta.y())
+
 
 class KeyPoint(Point):
     """
