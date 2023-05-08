@@ -279,7 +279,7 @@ class Frame:
     def draw_point(self, point: Point):
         self._data = cv2.circle(
             self.data(),
-            center=(point.x(), point.y()),
+            center=point.int().tuple(),
             radius=point.radius(),
             color=point.color().rgb(),
             thickness=-1,
@@ -323,8 +323,8 @@ class Frame:
 
         self._data = cv2.line(
             img=self.data(),
-            pt1=(start_point.x(), start_point.y()),
-            pt2=(end_point.x(), end_point.y()),
+            pt1=start_point.int().tuple(),
+            pt2=end_point.int().tuple(),
             color=color.rgb(),
             thickness=thickness,
         )
