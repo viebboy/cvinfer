@@ -17,7 +17,7 @@ Apache License 2.0
 """
 
 from __future__ import annotations
-from typing import Union
+from typing import Union, Tuple, Any
 import numpy as np
 import os
 from loguru import logger
@@ -511,20 +511,27 @@ class BoundingBox:
 
 class Point:
     """
-    abstraction for a point in an image
-    a point must have non-negative coordinates
+    abstraction for a point
     """
-    def __init__(self, x: int, y: int, color=Color(), radius=2):
+    def __init__(self, x: Any, y: Any, color=Color(), radius=2):
         # note x, y correspond to points on the width and height axis
-        assert isinstance(x, int)
-        assert isinstance(y, int)
-        assert x >= 0
-        assert y >= 0
         assert radius > 0
         self._x = x
         self._y = y
         self._color = color
         self._radius = radius
+
+    def copy(self):
+        return Point(self.x(), self.y(), self.color(), self.radius())
+
+    def tuple(self) -> Tuple[Any, Any]:
+        return (self._x, self._y)
+
+    def int(self) -> Point:
+        new_point = self.copy()
+        new_point.set_x(int(self.x()))
+        new_point.set_y(int(self.y()))
+        return new_point
 
     def color(self):
         return self._color
@@ -543,14 +550,12 @@ class Point:
         return self._x
 
     def set_x(self, x):
-        assert x >= 0
         self._x = x
 
     def y(self):
         return self._y
 
     def set_y(self, y):
-        assert y >= 0
         self._y = y
 
     def translate(self, reference: Point):
@@ -571,42 +576,69 @@ class Point:
             self.radius()
         )
 
-    def __add__(self, other):
+    def __add__(self, other: Point):
         """
         Add two points.
         """
-        return Point(self.x() + other.x(), self.y() + other.y())
+        new_point = self.copy()
+        new_point.set_x(self.x() + other.x())
+        new_point.set_y(self.y() + other.y())
+        return new_point
 
-    def __sub__(self, other):
+    def __sub__(self, other: Point):
         """
         Subtract two points.
         """
-        return Point(self.x() - other.x(), self.y() - other.y())
+        new_point = self.copy()
+        new_point.set_x(self.x() - other.x())
+        new_point.set_y(self.y() - other.y())
+        return new_point
 
-    def __mul__(self, other):
+    def __mul__(self, other: Point):
         """
         Multiply two points.
         """
-        return Point(self.x() / other.x(), self.y() / other.y())
+        new_point = self.copy()
+        new_point.set_x(self.x() * other.x())
+        new_point.set_y(self.y() * other.y())
+        return new_point
 
-    def __div__(self, other):
+    def __truediv__(self, other: Point):
         """
         Divide two points.
         """
-        return Point(self.x() * other.x(), self.y() * other.y())
+        new_point = self.copy()
+        new_point.set_x(self.x() / other.x())
+        new_point.set_y(self.y() / other.y())
+        return new_point
 
-    def __pow__(self, other):
+    def __pow__(self, scalar: int):
         """
         Compute exponential each coordinate.
         """
-        return Point(self.x() * other.x(), self.y() * other.y())
+        new_point = self.copy()
+        new_point.set_x(self.x() ** scalar)
+        new_point.set_y(self.y() ** scalar)
+        return new_point
 
-    def distance(self, other):
+    def __abs__(self):
+        """
+        Compute absolute values of point coordinates.
+        """
+        new_point = self.copy()
+        new_point.set_x(abs(self.x()))
+        new_point.set_y(abs(self.y()))
+        return new_point
+
+    def distance(self, other: Point):
         """
         Compute euclidean distance.
         """
         delta = (self - other) ** 2
         return np.sqrt(delta.x() + delta.y())
+
+    def magnitude(self) -> float:
+        return np.sqrt(self.x()**2 + self.y()**2)
 
 
 class KeyPoint(Point):
