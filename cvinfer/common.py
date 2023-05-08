@@ -445,7 +445,8 @@ class BoundingBox:
         return self._bottom_right
 
     def center(self):
-        return self._top_left + Point(self.width, self.height)
+        return self._top_left + Point(
+            self.width(), self.height()) / Point(2.0, 2.0)
 
     def confidence(self):
         return self._confidence
