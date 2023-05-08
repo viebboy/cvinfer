@@ -289,6 +289,26 @@ class Frame:
         for point in points:
             self.draw_point(point)
 
+    def draw_line(
+        self,
+        start_point: Point,
+        end_point: Point,
+        color: Color,
+        thickness: int,
+        draw_point: bool=True,
+    ):
+        if draw_point:
+            self.draw_point(start_point)
+            self.draw_point(end_point)
+
+        self._data = cv2.arrowedLine(
+            img=self.data().copy(),
+            pt1=start_point.int().tuple(),
+            pt2=end_point.int().tuple(),
+            color=color.rgb(),
+            thickness=thickness,
+        )
+
     def draw_segment(
         self,
         start_point: Point,
@@ -306,6 +326,24 @@ class Frame:
             pt1=(start_point.x(), start_point.y()),
             pt2=(end_point.x(), end_point.y()),
             color=color.rgb(),
+            thickness=thickness,
+        )
+
+    def draw_text(
+            self,
+            text: str,
+            start_point: Point,
+            color: Color,
+            thickness: int = 2,
+            font_scale: float = 0.75,
+    ):
+        self._data = cv2.putText(
+            self.data(),
+            text,
+            start_point.int().tuple(),
+            font=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=font_scale,
+            color=color.bgr(),
             thickness=thickness,
         )
 
