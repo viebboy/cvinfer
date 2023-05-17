@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Union, Tuple, Any
 import numpy as np
 import os
+import sys
 from loguru import logger
 import onnxruntime as ORT
 import cv2
@@ -46,9 +47,28 @@ def load_module(module_file, attribute, module_name=None):
     if module_name is None:
         module_name = ''.join(random.sample(string.ascii_letters, 10))
 
-    spec = importlib.util.spec_from_file_location(module_name, module_file)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, module_file)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception as error1:
+        try:
+            # try to append directory that contains module_file to path
+            logger.debug(f'fails to import attribute {attribute} from module {module_file}')
+            module_path = os.path.dirname(os.path.abspath(module_file))
+            logger.debug(f'trying to append {module_path} to sys.path to fix this issue')
+            sys.path.append(module_path)
+
+            spec = importlib.util.spec_from_file_location(module_name, module_file)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as error2:
+            logger.error(f'ERROR when trying to load from {module_file} without appending parent dir')
+            logger.error(str(error1))
+            logger.error(f'ERROR when trying to load from {module_file} WITH parent dir appended to sys.path')
+            logger.error(str(error2))
+            raise error1
+
     if hasattr(module, attribute):
         return getattr(module, attribute)
     else:
