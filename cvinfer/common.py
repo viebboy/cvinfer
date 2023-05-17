@@ -367,9 +367,19 @@ class Frame:
             thickness=thickness,
         )
 
-    def draw_bounding_box(self, box: BoundingBox):
+    def draw_bounding_box(self, box: BoundingBox, allow_clipping: bool = False):
+        # convert to int coordinates
+        box = box.int()
         x0, y0 = box.top_left().x(), box.top_left().y()
         x1, y1 = box.bottom_right().x(), box.bottom_right().y()
+
+        # clipping
+        if allow_clipping:
+            x0 = min(max(0, x0), self.width() -1)
+            x1 = min(max(0, x1), self.width() -1)
+            y0 = min(max(0, y0), self.height() -1)
+            y1 = min(max(0, y1), self.height() -1)
+
         if 0 <= x0 < self.width() and 0 <= x1 < self.width() and 0 <= y0 < self.height() and 0 <= y1 < self.height():
             # valid box
             self._data = draw_rect(
@@ -389,9 +399,9 @@ class Frame:
             logger.warning(f'frame={self}')
             raise RuntimeError('got invalid box when putting into the frame')
 
-    def draw_bounding_boxes(self, boxes: list[BoundingBox]):
+    def draw_bounding_boxes(self, boxes: list[BoundingBox], allow_clipping: bool = False):
         for box in boxes:
-            self.draw_bounding_box(box)
+            self.draw_bounding_box(box, allow_clipping)
 
     def __str__(self):
         return 'Frame(height={}, width={})'.format(self.height(), self.width())
@@ -481,8 +491,8 @@ class BoundingBox:
         assert isinstance(top_left, Point)
         assert isinstance(bottom_right, Point)
 
-        assert bottom_right.x() >= top_left.x()
-        assert bottom_right.y() >= top_left.y()
+        assert bottom_right.x() > top_left.x()
+        assert bottom_right.y() > top_left.y()
         assert 0 <= confidence <= 1
 
         self._top_left = top_left
@@ -495,6 +505,29 @@ class BoundingBox:
         self._label_font_size = label_font_size
         self._label_transparency = label_transparency
         self._confidence = confidence
+
+    def scale(self, scale: float):
+        new_width = self.width() * scale
+        new_height = self.height() * scale
+        if new_width < 1 or new_height < 1:
+            logger.warning(f'ignore bounding box scaling due invalid output bounding box')
+            return
+
+        top_left = self.center() - Point(new_width, new_height) / Point(2.0, 2.0)
+        bottom_right = self.center() + Point(new_width, new_height) / Point(2.0, 2.0)
+
+        return BoundingBox(
+            top_left=top_left,
+            bottom_right=bottom_right,
+            confidence=self.confidence(),
+            color=self.color(),
+            thickness=self.thickness(),
+            label=self.label(),
+            label_color=self.label_color(),
+            label_background_color=self.label_background_color(),
+            label_font_size=self.label_font_size(),
+            label_transparency=self.label_transparency(),
+        )
 
     def top_left(self):
         return self._top_left
