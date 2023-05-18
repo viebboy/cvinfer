@@ -277,8 +277,10 @@ class Frame:
         return self._data.shape
 
     def crop(self, bounding_box: BoundingBox, allow_clipping: bool = False):
-        x0, y0 = bounding_box.top_left().x(), bounding_box.top_left().y()
-        x1, y1 = bounding_box.bottom_right().x(), bounding_box.bottom_right().y()
+        top_left = bounding_box.top_left().int()
+        bottom_right = bounding_box.bottom_right().int()
+        x0, y0 = top_left.x(), top_left.y()
+        x1, y1 = bottom_right.x(), bottom_right.y()
 
         if not allow_clipping:
             if x0 >= 0 and y0 >= 0 and x1 < self.width() and y1 < self.height():
@@ -369,9 +371,10 @@ class Frame:
 
     def draw_bounding_box(self, box: BoundingBox, allow_clipping: bool = False):
         # convert to int coordinates
-        box = box.int()
-        x0, y0 = box.top_left().x(), box.top_left().y()
-        x1, y1 = box.bottom_right().x(), box.bottom_right().y()
+        top_left = box.top_left().int()
+        bottom_right = box.bottom_right().int()
+        x0, y0 = top_left.x(), top_left.y()
+        x1, y1 = bottom_right.x(), bottom_right.y()
 
         # clipping
         if allow_clipping:
