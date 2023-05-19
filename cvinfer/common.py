@@ -746,6 +746,13 @@ class KeyPoint(Point):
         self._confidence = confidence
         super().__init__(x, y, color, radius)
 
+    def copy(self):
+        return KeyPoint(self.x(), self.y(), self.confidence(), self.color(), self.radius())
+
+    def set_confidence(self, confidence: float):
+        assert 0 <= confidence <= 1
+        self._confidence = confidence
+
     def confidence(self):
         return self._confidence
 
