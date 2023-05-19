@@ -363,7 +363,7 @@ class Frame:
             self.data(),
             text,
             start_point.int().tuple(),
-            font=cv2.FONT_HERSHEY_SIMPLEX,
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=font_scale,
             color=color.bgr(),
             thickness=thickness,
