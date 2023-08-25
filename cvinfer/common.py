@@ -315,7 +315,7 @@ class Frame:
 
     def draw_point(self, point: Point):
         self._data = cv2.circle(
-            self.data().copy(),
+            self.data(),
             center=point.int().tuple(),
             radius=point.radius(),
             color=point.color().rgb(),
@@ -339,7 +339,7 @@ class Frame:
             self.draw_point(end_point)
 
         self._data = cv2.arrowedLine(
-            img=self.data().copy(),
+            img=self.data(),
             pt1=start_point.int().tuple(),
             pt2=end_point.int().tuple(),
             color=color.rgb(),
@@ -359,7 +359,7 @@ class Frame:
             self.draw_point(end_point)
 
         self._data = cv2.line(
-            img=self.data().copy(),
+            img=self.data(),
             pt1=start_point.int().tuple(),
             pt2=end_point.int().tuple(),
             color=color.rgb(),
