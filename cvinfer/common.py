@@ -56,13 +56,9 @@ def load_module(module_file, attribute, module_name=None):
     except Exception as error1:
         try:
             # try to append directory that contains module_file to path
-            logger.debug(
-                f"fails to import attribute {attribute} from module {module_file}"
-            )
+            logger.debug(f"fails to import attribute {attribute} from module {module_file}")
             module_path = os.path.dirname(os.path.abspath(module_file))
-            logger.debug(
-                f"trying to append {module_path} to sys.path to fix this issue"
-            )
+            logger.debug(f"trying to append {module_path} to sys.path to fix this issue")
             sys.path.append(module_path)
 
             spec = importlib.util.spec_from_file_location(module_name, module_file)
@@ -196,9 +192,7 @@ class OnnxModel:
 
     @logger.catch
     def postprocess(self, model_output, metadata):
-        return self.postprocess_function(
-            model_output, metadata, self.config["postprocessing"]
-        )
+        return self.postprocess_function(model_output, metadata, self.config["postprocessing"])
 
     @logger.catch
     def __call__(self, inputs: Union[Frame, list[Frame]]):
@@ -210,23 +204,17 @@ class OnnxModel:
             assert isinstance(inputs, Frame)
 
         # calling preprocess
-        model_inputs, metadata = self.preprocess_function(
-            inputs, self.config["preprocessing"]
-        )
+        model_inputs, metadata = self.preprocess_function(inputs, self.config["preprocessing"])
 
         # compute ONNX Runtime output prediction
         if len(self.input_names) == 1:
             ort_inputs = {self.input_names[0]: model_inputs}
         else:
-            ort_inputs = {
-                name: value for name, value in zip(self.input_names, model_inputs)
-            }
+            ort_inputs = {name: value for name, value in zip(self.input_names, model_inputs)}
 
         model_outputs = self.session.run(None, ort_inputs)
 
-        outputs = self.postprocess_function(
-            model_outputs, metadata, self.config["postprocessing"]
-        )
+        outputs = self.postprocess_function(model_outputs, metadata, self.config["postprocessing"])
 
         return outputs
 
@@ -434,9 +422,7 @@ class Frame:
             logger.warning(f"frame={self}")
             raise RuntimeError("got invalid box when putting into the frame")
 
-    def draw_bounding_boxes(
-        self, boxes: list[BoundingBox], allow_clipping: bool = False
-    ):
+    def draw_bounding_boxes(self, boxes: list[BoundingBox], allow_clipping: bool = False):
         for box in boxes:
             self.draw_bounding_box(box, allow_clipping)
 
@@ -471,9 +457,7 @@ class Frame:
 
             assert pad_position in ["fixed", "random"]
 
-            new_frame_data = pad_constant * np.ones(
-                (new_height, new_width, 3), dtype=np.uint8
-            )
+            new_frame_data = pad_constant * np.ones((new_height, new_width, 3), dtype=np.uint8)
             ratio = min(new_height / self.height(), new_width / self.width())
             sub_width = int(ratio * self.width())
             sub_height = int(ratio * self.height())
@@ -552,9 +536,7 @@ class BoundingBox:
         new_width = self.width() * scale
         new_height = self.height() * scale
         if new_width < 1 or new_height < 1:
-            logger.warning(
-                f"ignore bounding box scaling due invalid output bounding box"
-            )
+            logger.warning(f"ignore bounding box scaling due invalid output bounding box")
             return
 
         top_left = self.center() - Point(new_width, new_height) / Point(2.0, 2.0)
@@ -638,9 +620,7 @@ class BoundingBox:
             "BoundingBox(height={}, width={}, confidence={}, ".format(
                 self.height(), self.width(), self.confidence()
             )
-            + "top_left={}, bottom_right={}), ".format(
-                self.top_left(), self.bottom_right()
-            )
+            + "top_left={}, bottom_right={}), ".format(self.top_left(), self.bottom_right())
             + "label={}, label_color={}), ".format(self.label(), self.label_color())
             + "label_background_color={}, ".format(self.label_background_color())
             + "label_font_size={}, ".format(self.label_font_size())
@@ -783,18 +763,14 @@ class KeyPoint(Point):
     Abstraction for keypoint. A keypoint is a point with confidence score
     """
 
-    def __init__(
-        self, x: int, y: int, confidence: float, color: Color(), radius: int = 2
-    ):
+    def __init__(self, x: int, y: int, confidence: float, color: Color(), radius: int = 2):
         assert isinstance(confidence, float)
         assert 0 <= confidence <= 1
         self._confidence = confidence
         super().__init__(x, y, color, radius)
 
     def copy(self):
-        return KeyPoint(
-            self.x(), self.y(), self.confidence(), self.color(), self.radius()
-        )
+        return KeyPoint(self.x(), self.y(), self.confidence(), self.color(), self.radius())
 
     def set_confidence(self, confidence: float):
         assert 0 <= confidence <= 1
