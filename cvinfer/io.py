@@ -26,7 +26,9 @@ import threading
 
 
 @logger.catch
-def read_video(path, output_queue, input_queue, skip_frame_frequency, max_queue_size=100):
+def read_video(
+    path, output_queue, input_queue, skip_frame_frequency, max_queue_size=100
+):
     """
     read a video as a collection of Frames and put into a queue
     :param path: (str) path to video
@@ -43,19 +45,21 @@ def read_video(path, output_queue, input_queue, skip_frame_frequency, max_queue_
         frame_count = handle.get(cv2.CAP_PROP_FRAME_COUNT)
 
         # put metadata
-        output_queue.put({
-            'width': width,
-            'height': height,
-            'fps': fps,
-            'frame_count': frame_count,
-        })
+        output_queue.put(
+            {
+                "width": width,
+                "height": height,
+                "fps": fps,
+                "frame_count": frame_count,
+            }
+        )
 
         # put frames
         skip_count = skip_frame_frequency
         while True:
             if not input_queue.empty():
                 # if receive any signal from parent
-                logger.debug('input queue is non-empty, stop from reading video now')
+                logger.debug("input queue is non-empty, stop from reading video now")
                 handle.release()
                 output_queue.put(None)
                 break
@@ -74,7 +78,7 @@ def read_video(path, output_queue, input_queue, skip_frame_frequency, max_queue_
                         skip_count += 1
                 else:
                     # reading not successful, terminate
-                    logger.debug('end of the stream')
+                    logger.debug("end of the stream")
                     handle.release()
                     output_queue.put(None)
                     break
@@ -93,6 +97,7 @@ class VideoReader:
     call reader.next() to get the next video frame (an instance of Frame)
     call reader.close() to close the reader
     """
+
     def __init__(
         self,
         path,
@@ -101,12 +106,12 @@ class VideoReader:
         max_queue_size=100,
         max_elapsed_time=20,
     ):
-        if not hasattr(self, '_path'):
+        if not hasattr(self, "_path"):
             # if the base implementation, a.k.a reading from file, assert
             assert os.path.exists(path)
-            logger.debug(f'reading from video file: {path}')
+            logger.debug(f"reading from video file: {path}")
 
-        logger.debug(f'use threading: {use_threading}')
+        logger.debug(f"use threading: {use_threading}")
 
         self.use_threading = use_threading
         if use_threading:
@@ -114,7 +119,7 @@ class VideoReader:
             self._event_queue = Queue()
             self._capture_thread = threading.Thread(
                 target=read_video,
-                args=(path, self._frame_queue, self._event_queue, skip_frame_frequency)
+                args=(path, self._frame_queue, self._event_queue, skip_frame_frequency),
             )
             # start the thread
             self._capture_thread.start()
@@ -124,7 +129,9 @@ class VideoReader:
             while self._frame_queue.empty():
                 time.sleep(0.01)
                 if time.time() - start_time > max_elapsed_time:
-                    logger.warning('reaching the maximum elapsed time but receive no video metadata from IO thread')
+                    logger.warning(
+                        "reaching the maximum elapsed time but receive no video metadata from IO thread"
+                    )
                     self._terminate_thread()
                     raise RuntimeError()
                 break
@@ -137,10 +144,10 @@ class VideoReader:
             frame_count = self._video_handle.get(cv2.CAP_PROP_FRAME_COUNT)
 
             self._metadata = {
-                'width': width,
-                'height': height,
-                'fps': fps,
-                'frame_count': frame_count,
+                "width": width,
+                "height": height,
+                "fps": fps,
+                "frame_count": frame_count,
             }
             self._skip_frame_frequency = skip_frame_frequency
             self._skip_count = skip_frame_frequency
@@ -150,9 +157,9 @@ class VideoReader:
 
     def close(self):
         if not self._is_terminated:
-            logger.debug('terminating now')
+            logger.debug("terminating now")
             if self.use_threading:
-                self._event_queue.put('terminate')
+                self._event_queue.put("terminate")
                 self._capture_thread.join()
             else:
                 self._video_handle.release()
@@ -166,7 +173,7 @@ class VideoReader:
         try:
             return self._next()
         except KeyboardInterrupt:
-            logger.debug('keyboard interrupt, closing reader now')
+            logger.debug("keyboard interrupt, closing reader now")
             self.close()
             return
         except Exception as error:
@@ -183,7 +190,9 @@ class VideoReader:
             while self._frame_queue.empty():
                 time.sleep(0.001)
                 if time.time() - start_time > self._max_elapsed_time:
-                    logger.warning('reaching the maximum elapsed time but receive no video metadata from IO thread')
+                    logger.warning(
+                        "reaching the maximum elapsed time but receive no video metadata from IO thread"
+                    )
                     self.close()
                     raise RuntimeError()
                 break
@@ -212,12 +221,12 @@ class VideoReader:
                     break
 
 
-
 class RTSPReader(VideoReader):
     """
     reader for rtsp stream
     support reader.next() and reader.close()
     """
+
     def __init__(
         self,
         path,
@@ -226,8 +235,8 @@ class RTSPReader(VideoReader):
         max_queue_size=100,
         max_elapsed_time=20,
     ):
-        assert path.startswith('rtsp') or path.startswith('RTSP')
-        logger.debug(f'reading from RTSP stream: {path}')
+        assert path.startswith("rtsp") or path.startswith("RTSP")
+        logger.debug(f"reading from RTSP stream: {path}")
         self._path = path
 
         super().__init__(
@@ -260,6 +269,7 @@ class WebcamReader(VideoReader):
     interface to get frames from webcam
     support reader.next() and reader.close()
     """
+
     def __init__(
         self,
         cam_id: int,
@@ -270,7 +280,7 @@ class WebcamReader(VideoReader):
     ):
         assert isinstance(cam_id, int)
         assert cam_id >= 0
-        logger.debug(f'reading from Webcam stream with ID: {cam_id}')
+        logger.debug(f"reading from Webcam stream with ID: {cam_id}")
         self._path = cam_id
 
         super().__init__(
@@ -301,7 +311,7 @@ class WebcamReader(VideoReader):
 class VideoWriter:
     def __init__(self, video_file, fps):
         self._video_file = video_file
-        self._metadata = {'fps': fps, 'frame_count': 0}
+        self._metadata = {"fps": fps, "frame_count": 0}
         self._cv_writer = None
 
     def path(self):
@@ -316,14 +326,14 @@ class VideoWriter:
             width = frame.width()
             self._cv_writer = cv2.VideoWriter(
                 self._video_file,
-                cv2.VideoWriter_fourcc(*'mp4v'),
-                self._metadata['fps'],
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                self._metadata["fps"],
                 (width, height),
             )
         # note that opencv has default BGR format so we need to flip
         # because Frame data is in RGB
         self._cv_writer.write(frame.data()[:, :, ::-1])
-        self._metadata['frame_count'] += 1
+        self._metadata["frame_count"] += 1
 
     def close(self):
         if self._cv_writer is not None:

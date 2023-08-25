@@ -25,8 +25,7 @@ from cvinfer.common import (
 )
 
 
-
-def preprocess(frame: Frame, config:dict):
+def preprocess(frame: Frame, config: dict):
     """
     The signature of the preprocessing function always have 2 arguments
     The 1st argument is always a Frame object or a list of Frame objects
@@ -43,14 +42,14 @@ def preprocess(frame: Frame, config:dict):
 
     # preprocessing for yolox model is very simple
     # we only need to resize (keep aspect ratio, pad constant is 114) to a target size
-    width = config['width']
-    height = config['height']
+    width = config["width"]
+    height = config["height"]
 
     # because input is a Frame, we could leverage the resize() method to perform resizing
     # before resizing, we need to keep track of original size
     metadata = {
-        'height_before': frame.height(),
-        'width_before': frame.width(),
+        "height_before": frame.height(),
+        "width_before": frame.width(),
     }
 
     # note that resizing with aspect ratio kept will return 2 values
@@ -62,9 +61,9 @@ def preprocess(frame: Frame, config:dict):
     )
 
     # bookkeeping this ratio for postprocessing
-    metadata['resize_ratio'] = ratio
-    metadata['height_after'] = frame.height()
-    metadata['width_after'] = frame.width()
+    metadata["resize_ratio"] = ratio
+    metadata["height_after"] = frame.height()
+    metadata["width_after"] = frame.width()
 
     # then obtain the numpy array
     # calling frame.data() returns a numpy array of type uint8
@@ -78,6 +77,7 @@ def preprocess(frame: Frame, config:dict):
     # information that might be needed during postprocessing, such as original
     # image size and resize ratio
     return output, metadata
+
 
 def postprocess(model_output, metadata, config):
     """
@@ -100,7 +100,6 @@ def postprocess(model_output, metadata, config):
 
     # --------------- END OF IMPORTS ------------------------------------------
     # -------------------------------------------------------------------------
-
 
     # -------------- ALL SUB-LOGICS GO HERE -----------------------------------
     # all user-created functions should be defined inside
@@ -155,24 +154,28 @@ def postprocess(model_output, metadata, config):
         keep = nms(valid_boxes, valid_scores, nms_thr)
         if keep:
             dets = np.concatenate(
-                [valid_boxes[keep], valid_scores[keep, None], valid_cls_inds[keep, None]], 1
+                [
+                    valid_boxes[keep],
+                    valid_scores[keep, None],
+                    valid_cls_inds[keep, None],
+                ],
+                1,
             )
         return dets
-
 
     # -------------- END OF SUB-LOGICS ----------------------------------------
     # -------------------------------------------------------------------------
 
     # output of ONNX model is always a list
     # in our case, yolox only returns 1 output
-    outputs = model_output[0].squeeze(0) # this should be a numpy array
+    outputs = model_output[0].squeeze(0)  # this should be a numpy array
 
     # the original logic for postprocessing can be found from here
     # https://github.com/Megvii-BaseDetection/YOLOX/blob/5c110a25596ad8385e955ac4fc992ba040043fe6/yolox/utils/demo_utils.py
     # copy directly from the above logic
 
     # img_size is the size after resizing
-    img_size = (metadata['height_after'], metadata['width_after'])
+    img_size = (metadata["height_after"], metadata["width_after"])
 
     grids = []
     expanded_strides = []
@@ -187,7 +190,7 @@ def postprocess(model_output, metadata, config):
     else:
         strides = [8, 16, 32, 64]
     """
-    strides = config['strides']
+    strides = config["strides"]
 
     hsizes = [img_size[0] // stride for stride in strides]
     wsizes = [img_size[1] // stride for stride in strides]
@@ -216,24 +219,24 @@ def postprocess(model_output, metadata, config):
     scores = outputs[:, 4:5] * outputs[:, 5:]
 
     boxes_xyxy = np.ones_like(boxes)
-    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2]/2.
-    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3]/2.
-    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2]/2.
-    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3]/2.
+    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2] / 2.0
+    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3] / 2.0
+    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2] / 2.0
+    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3] / 2.0
 
     # now convert back to coordinates in the original image using the resize
     # ratio
-    boxes_xyxy /= metadata['resize_ratio']
+    boxes_xyxy /= metadata["resize_ratio"]
 
     dets = multiclass_nms_class_agnostic(
         boxes_xyxy,
         scores,
-        nms_thr=config['nonmaximum_suppression_threshold'],
-        score_thr=config['confidence_threshold'],
+        nms_thr=config["nonmaximum_suppression_threshold"],
+        score_thr=config["confidence_threshold"],
     )
 
-    original_height = metadata['height_before']
-    original_width = metadata['width_before']
+    original_height = metadata["height_before"]
+    original_width = metadata["width_before"]
 
     outputs = []
     if dets is not None:
@@ -249,7 +252,7 @@ def postprocess(model_output, metadata, config):
             top_left = Point(x0, y0)
             bottom_right = Point(x1, y1)
             confidence = min(max(0.0, item[4]), 1.0)
-            object_label = config['class_names'][int(item[5])]
+            object_label = config["class_names"][int(item[5])]
             box = BoundingBox(
                 top_left=top_left,
                 bottom_right=bottom_right,

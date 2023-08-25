@@ -26,13 +26,14 @@ try:
     import git
     import pkg_resources
     import requests
+
     has_dep = True
 except Exception as error:
-    print('package cvinfer WARNING: (re)install the dependencies in requirements.txt')
+    print("package cvinfer WARNING: (re)install the dependencies in requirements.txt")
     has_dep = False
 
 # root dir is for user configuration
-STATUS_FILE = os.path.join(os.path.expanduser('~'), '.cvinfer.status')
+STATUS_FILE = os.path.join(os.path.expanduser("~"), ".cvinfer.status")
 has_status_file = os.path.exists(STATUS_FILE)
 
 if has_status_file:
@@ -47,11 +48,11 @@ else:
 
 
 if has_dep and require_checking:
-    with open(STATUS_FILE, 'w') as fid:
-        fid.write('')
+    with open(STATUS_FILE, "w") as fid:
+        fid.write("")
 
-    package = 'cvinfer'
-    branch = 'main'
+    package = "cvinfer"
+    branch = "main"
 
     remote_repo = f"https://github.com/viebboy/{package}"
 
@@ -78,7 +79,7 @@ if has_dep and require_checking:
         # Compare the local and remote commit hashes
         if local_commit != remote_commit:
             logger.warning(
-                f'local commit diverges from remote commit in package {package}. Please consider updating'
+                f"local commit diverges from remote commit in package {package}. Please consider updating"
             )
-            logger.warning(f'local commit on branch {branch}: {local_commit}')
-            logger.warning(f'remote commit on branch {branch}: {remote_commit}')
+            logger.warning(f"local commit on branch {branch}: {local_commit}")
+            logger.warning(f"remote commit on branch {branch}: {remote_commit}")

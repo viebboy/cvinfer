@@ -21,8 +21,8 @@ import urllib.request
 import os
 
 # let's download a sample video first
-remote_path = 'https://download.samplelib.com/mp4/sample-5s.mp4'
-local_path = 'test_video.mp4'
+remote_path = "https://download.samplelib.com/mp4/sample-5s.mp4"
+local_path = "test_video.mp4"
 
 if not os.path.exists(local_path):
     urllib.request.urlretrieve(remote_path, local_path)
@@ -35,8 +35,8 @@ Below is a typical boilerplate of VideoReader, RTSPReader, WebcamReader
 
 reader = VideoReader(
     path=local_path,
-    use_threading=True, # if True, load the video in another thread
-    skip_frame_frequency=1, # skip 1 frame between every returned frames
+    use_threading=True,  # if True, load the video in another thread
+    skip_frame_frequency=1,  # skip 1 frame between every returned frames
 )
 
 """
@@ -52,7 +52,9 @@ methods of VideoReader, RTSPReader or WebcamReader are the same
 """
 
 # we will also create an instance of VideoWriter to save the processed video
-writer = VideoWriter('processed_video.mp4', fps=60) # increase the FPS to increase playback speed
+writer = VideoWriter(
+    "processed_video.mp4", fps=60
+)  # increase the FPS to increase playback speed
 
 # access the metadata, which is a dictionary with "height", "width", "fps" as
 # keys
@@ -67,8 +69,8 @@ print(f'video fps: {metadata["fps"]}')
 
 try:
     while True:
-        frame = reader.next() # this returns an instance of cvinfer.common.Frame
-        if frame is None: # end of the video
+        frame = reader.next()  # this returns an instance of cvinfer.common.Frame
+        if frame is None:  # end of the video
             break
 
         # process this frame
@@ -81,9 +83,9 @@ try:
         frame, _ = frame.resize(
             new_width=300,
             new_height=300,
-            keep_ratio=True, # resize by keeping aspect ratio
-            pad_constant=255, # if keeping aspect ratio, we need to pad, so here specify the pad value
-            interpolation='cubic',
+            keep_ratio=True,  # resize by keeping aspect ratio
+            pad_constant=255,  # if keeping aspect ratio, we need to pad, so here specify the pad value
+            interpolation="cubic",
         )
 
         # horizontal flip and random color jittering
