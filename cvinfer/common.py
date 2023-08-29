@@ -234,7 +234,7 @@ class Frame:
             else:
                 # TODO: handle when input is grayscale image
                 self._path = input
-                self._data = cv2.imread(input)[:, :, ::-1]
+                self._data = cv2.cvtColor(cv2.imread(input), cv2.COLOR_BGR2RGB)
         elif isinstance(input, np.ndarray):
             if input.dtype == np.uint8:
                 # TODO: handle when input is grayscale, check channel
@@ -278,7 +278,7 @@ class Frame:
         return self._data
 
     def bgr(self):
-        return self._data[:, :, ::-1]
+        return cv2.cvtColor(self._data, cv2.COLOR_RGB2BGR)
 
     def height(self):
         return self._data.shape[0]
