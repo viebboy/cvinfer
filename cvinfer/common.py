@@ -296,7 +296,7 @@ class Frame:
         x1, y1 = bottom_right.x(), bottom_right.y()
 
         if not allow_clipping:
-            if x0 >= 0 and y0 >= 0 and x1 < self.width() and y1 < self.height():
+            if x0 >= 0 and y0 >= 0 and x1 <= self.width() and y1 <= self.height():
                 return Frame(self.data()[y0:y1, x0:x1, :])
             else:
                 logger.debug(f"fails to crop frame")
@@ -592,6 +592,26 @@ class BoundingBox:
             label_transparency=label_transparency,
         )
 
+    def translate(self, reference_point: Point, inplace=False):
+        top_left = self.top_left() + reference_point
+        bottom_right = self.bottom_right() + reference_point
+        if inplace:
+            self._top_left = top_left
+            self._bottom_right = bottom_right
+        else:
+            return BoundingBox(
+                top_left=top_left,
+                bottom_right=bottom_right,
+                confidence=self.confidence(),
+                color=self.color(),
+                thickness=self.thickness(),
+                label=self.label(),
+                label_color=self.label_color(),
+                label_background_color=self.label_background_color(),
+                label_font_size=self.label_font_size(),
+                label_transparency=self.label_transparency(),
+            )
+
     def clip(self, height: int, width: int, inplace=False):
         top_left_x = min(max(0, self._top_left.x()), width)
         top_left_y = min(max(0, self._top_left.y()), height)
@@ -613,10 +633,10 @@ class BoundingBox:
             self._bottom_right.set_y(bottom_right_y)
         else:
             new_box = self.copy()
-            new_box.top_left.set_x(top_left_x)
-            new_box.top_left.set_y(top_left_y)
-            new_box.bottom_right.set_x(bottom_right_x)
-            new_box.bottom_right.set_y(bottom_right_y)
+            new_box.top_left().set_x(top_left_x)
+            new_box.top_left().set_y(top_left_y)
+            new_box.bottom_right().set_x(bottom_right_x)
+            new_box.bottom_right().set_y(bottom_right_y)
             return new_box
 
     def xywh(
@@ -685,8 +705,8 @@ class BoundingBox:
         bottom_right = self.center() + Point(new_width, new_height) / Point(2.0, 2.0)
 
         return BoundingBox(
-            top_left=top_left.to_int(),
-            bottom_right=bottom_right.to_int(),
+            top_left=top_left.int(),
+            bottom_right=bottom_right.int(),
             confidence=self.confidence(),
             color=self.color(),
             thickness=self.thickness(),
@@ -797,24 +817,21 @@ class Point:
         self._color = color
         self._radius = radius
 
-    def to_int(self, inplace=False):
-        if inplace:
-            self._x = int(self._x)
-            self._y = int(self._y)
-        else:
-            return Point(int(self._x), int(self._y), self._color, self._radius)
-
     def copy(self):
         return Point(self.x(), self.y(), self.color(), self.radius())
 
     def tuple(self) -> Tuple[Any, Any]:
         return (self._x, self._y)
 
-    def int(self) -> Point:
-        new_point = self.copy()
-        new_point.set_x(int(self.x()))
-        new_point.set_y(int(self.y()))
-        return new_point
+    def int(self, inplace=False) -> Point:
+        if inplace:
+            self._x = int(self._x)
+            self._y = int(self._y)
+        else:
+            new_point = self.copy()
+            new_point.set_x(int(self.x()))
+            new_point.set_y(int(self.y()))
+            return new_point
 
     def color(self):
         return self._color
