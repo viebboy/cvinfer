@@ -558,7 +558,7 @@ class BoundingBox:
             label=label,
             label_color=label_color,
             label_background_color=label_background_color,
-            lael_font_size=label_font_size,
+            label_font_size=label_font_size,
             label_transparency=label_transparency,
         )
 
