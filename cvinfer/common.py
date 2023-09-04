@@ -532,6 +532,115 @@ class BoundingBox:
         self._label_transparency = label_transparency
         self._confidence = confidence
 
+    @staticmethod
+    def from_xywh(
+        x: Union[int, float],
+        y: Union[int, float],
+        width: int,
+        height: int,
+        confidence: float = 1.0,
+        color=Color(),
+        thickness=1,
+        label=None,
+        label_color=Color(0, 0, 0),
+        label_background_color=Color(255, 255, 255),
+        label_font_size=1,
+        label_transparency=0,
+    ) -> BoundingBox:
+        """return an instance of BoundingBox from (x, y, width, height)"""
+
+        return BoundingBox(
+            top_left=Point(x, y),
+            bottom_right=Point(x + width, y + height),
+            confidence=confidence,
+            color=color,
+            thickness=thickness,
+            label=label,
+            label_color=label_color,
+            label_background_color=label_background_color,
+            lael_font_size=label_font_size,
+            label_transparency=label_transparency,
+        )
+
+    @staticmethod
+    def from_x0y0x1y1(
+        x0: Union[int, float],
+        y0: Union[int, float],
+        x1: Union[int, float],
+        y1: Union[int, float],
+        confidence: float = 1.0,
+        color=Color(),
+        thickness=1,
+        label=None,
+        label_color=Color(0, 0, 0),
+        label_background_color=Color(255, 255, 255),
+        label_font_size=1,
+        label_transparency=0,
+    ) -> BoundingBox:
+        """return an instance of BoundingBox from (x0, y0, x1, y1)"""
+
+        return BoundingBox(
+            top_left=Point(x0, y0),
+            bottom_right=Point(x1, y1),
+            confidence=confidence,
+            color=color,
+            thickness=thickness,
+            label=label,
+            label_color=label_color,
+            label_background_color=label_background_color,
+            label_font_size=label_font_size,
+            label_transparency=label_transparency,
+        )
+
+    def clip(self, height: int, width: int, inplace=False):
+        top_left_x = min(max(0, self._top_left.x()), width)
+        top_left_y = min(max(0, self._top_left.y()), height)
+        bottom_right_x = min(max(0, self._bottom_right.x()), width)
+        bottom_right_y = min(max(0, self._bottom_right.y()), height)
+
+        if bottom_right_x <= top_left_x or bottom_right_y <= top_left_y:
+            logger.warning("failed to perform BoundingBox.clip() because top_left > bottom_right")
+            logger.warning(f"bounding box being clipped: {self}")
+            logger.warning(f"image height={height}, image width={width}")
+            raise RuntimeError(
+                "failed to perform BoundingBox.clip() because top_left > bottom_right"
+            )
+
+        if inplace:
+            self._top_left.set_x(top_left_x)
+            self._top_left.set_y(top_left_y)
+            self._bottom_right.set_x(bottom_right_x)
+            self._bottom_right.set_y(bottom_right_y)
+        else:
+            new_box = self.copy()
+            new_box.top_left.set_x(top_left_x)
+            new_box.top_left.set_y(top_left_y)
+            new_box.bottom_right.set_x(bottom_right_x)
+            new_box.bottom_right.set_y(bottom_right_y)
+            return new_box
+
+    def xywh(
+        self,
+    ) -> tuple[Union[int, float], Union[int, float], Union[int, float], Union[int, float]]:
+        """return the coordinates in the format (x, y, width, height)"""
+        return (
+            self.top_left().x(),
+            self.top_left().y(),
+            self.width(),
+            self.height(),
+        )
+
+    def x0y0x1y1(
+        self,
+    ) -> tuple[Union[int, float], Union[int, float], Union[int, float], Union[int, float]]:
+        """return the coordinates in the format (x0, y0, x1, y1)"""
+        return (
+            self.top_left().x(),
+            self.top_left().y(),
+            self.bottom_right().x(),
+            self.bottom_right().y(),
+        )
+
     def iou(self, box: BoundingBox) -> float:
         """
         compute the Intersection over Union (IoU) with a given box
@@ -658,6 +767,20 @@ class BoundingBox:
             + "label_background_color={}, ".format(self.label_background_color())
             + "label_font_size={}, ".format(self.label_font_size())
             + "label_transparency={})".format(self.label_transparency())
+        )
+
+    def copy(self) -> BoundingBox:
+        return BoundingBox(
+            top_left=self.top_left(),
+            bottom_right=self.bottom_right(),
+            confidence=self.confidence(),
+            color=self.color(),
+            thickness=self.thickness(),
+            label=self.label(),
+            label_color=self.label_color(),
+            label_background_color=self.label_background_color(),
+            label_font_size=self.label_font_size(),
+            label_transparency=self.label_transparency(),
         )
 
 
