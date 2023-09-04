@@ -532,6 +532,39 @@ class BoundingBox:
         self._label_transparency = label_transparency
         self._confidence = confidence
 
+    def iou(self, box: BoundingBox) -> float:
+        """
+        compute the Intersection over Union (IoU) with a given box
+        """
+        # Determine the coordinates of the intersection rectangle
+        x_left = max(self.top_left().x(), box.top_left().x())
+        y_top = max(self.top_left().y(), box.top_left().y())
+        x_right = min(self.bottom_right().x(), box.bottom_right().x())
+        y_bottom = min(self.bottom_right().y(), box.bottom_right().y())
+
+        # intersection
+        intersection_area = max(0, x_right - x_left) * max(0, y_bottom - y_top)
+        # union
+        union_area = self.area() + box.area() - intersection_area
+
+        # iou
+        return intersection_area / union_area
+
+    def union(self, box: BoundingBox) -> BoundingBox:
+        """compute the union box of 2 boxes"""
+        x_left = min(self.top_left().x(), box.top_left().x())
+        y_top = min(self.top_left().y(), box.top_left().y())
+        x_right = max(self.bottom_right().x(), box.bottom_right().x())
+        y_bottom = max(self.bottom_right().y(), box.bottom_right().y())
+        top_left = Point(x_left, y_top)
+        bottom_right = Point(x_right, y_bottom)
+        confidence = max(self.confidence(), box.confidence())
+
+        return BoundingBox(top_left=top_left, bottom_right=bottom_right, confidence=confidence)
+
+    def area(self):
+        return self.width() * self.height()
+
     def scale(self, scale: float):
         new_width = self.width() * scale
         new_height = self.height() * scale
