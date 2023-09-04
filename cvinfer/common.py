@@ -543,8 +543,8 @@ class BoundingBox:
         bottom_right = self.center() + Point(new_width, new_height) / Point(2.0, 2.0)
 
         return BoundingBox(
-            top_left=top_left,
-            bottom_right=bottom_right,
+            top_left=top_left.to_int(),
+            bottom_right=bottom_right.to_int(),
             confidence=self.confidence(),
             color=self.color(),
             thickness=self.thickness(),
@@ -640,6 +640,13 @@ class Point:
         self._y = y
         self._color = color
         self._radius = radius
+
+    def to_int(self, inplace=False):
+        if inplace:
+            self._x = int(self._x)
+            self._y = int(self._y)
+        else:
+            return Point(int(self._x), int(self._y), self._color, self._radius)
 
     def copy(self):
         return Point(self.x(), self.y(), self.color(), self.radius())
