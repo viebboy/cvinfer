@@ -679,6 +679,18 @@ class BoundingBox:
         # iou
         return intersection_area / union_area
 
+    def intersection(self, box: BoundingBox) -> BoundingBox:
+        """return the intersection with another box"""
+        # Determine the coordinates of the intersection rectangle
+        x_left = max(self.top_left().x(), box.top_left().x())
+        y_top = max(self.top_left().y(), box.top_left().y())
+        x_right = min(self.bottom_right().x(), box.bottom_right().x())
+        y_bottom = min(self.bottom_right().y(), box.bottom_right().y())
+        top_left = Point(x_left, y_top)
+        bottom_right = Point(x_right, y_bottom)
+
+        return BoundingBox(top_left=top_left, bottom_right=bottom_right, confidence=1.0)
+
     def union(self, box: BoundingBox) -> BoundingBox:
         """compute the union box of 2 boxes"""
         x_left = min(self.top_left().x(), box.top_left().x())
