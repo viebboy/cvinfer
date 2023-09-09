@@ -142,8 +142,8 @@ class VideoReader:
             frame_count = self._video_handle.get(cv2.CAP_PROP_FRAME_COUNT)
 
             self._metadata = {
-                "width": width,
-                "height": height,
+                "width": int(width),
+                "height": int(height),
                 "fps": fps,
                 "frame_count": frame_count,
             }
