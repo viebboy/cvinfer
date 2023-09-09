@@ -45,8 +45,8 @@ def read_video(path, output_queue, input_queue, skip_frame_frequency, max_queue_
         # put metadata
         output_queue.put(
             {
-                "width": width,
-                "height": height,
+                "width": int(width),
+                "height": int(height),
                 "fps": fps,
                 "frame_count": frame_count,
             }
