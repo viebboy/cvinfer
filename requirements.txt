@@ -1,5 +1,6 @@
 numpy
-opencv_python
+opencv-python
+opencv-contrib-python
 onnxruntime
 dill
 drawline
