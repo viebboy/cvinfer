@@ -299,11 +299,11 @@ class Frame:
             if x0 >= 0 and y0 >= 0 and x1 <= self.width() and y1 <= self.height():
                 return Frame(self.data()[y0:y1, x0:x1, :])
             else:
-                logger.debug(f"fails to crop frame")
+                logger.debug("fails to crop frame")
                 logger.debug(f"frame info: {self}")
                 logger.debug(f"bounding box info: {bounding_box}")
                 logger.info(
-                    f"if the bounding box exceeds the image size, set allow_clipping to True to crop"
+                    "if the bounding box exceeds the image size, set allow_clipping to True to crop"
                 )
                 return None
         else:
@@ -436,6 +436,58 @@ class Frame:
 
     def copy(self):
         return Frame(np.copy(self.data()))
+
+    def append_top(self, frame: Frame, inplace=False):
+        # append another frame on top of this frame
+        # width must be the same
+        if frame.width() != self.width():
+            raise RuntimeError("width must be the same to append on top")
+
+        data = np.ascontiguousarray(np.concatenate([frame._data, self._data], axis=0))
+        if inplace:
+            self._data = data
+            return
+        else:
+            return Frame(data)
+
+    def append_bottom(self, frame: Frame, inplace=False):
+        # append another frame at the bottom of this frame
+        # width must be the same
+        if frame.width() != self.width():
+            raise RuntimeError("width must be the same to append at the bottom")
+
+        data = np.ascontiguousarray(np.concatenate([self._data, frame._data], axis=0))
+        if inplace:
+            self._data = data
+            return
+        else:
+            return Frame(data)
+
+    def append_right(self, frame: Frame, inplace=False):
+        # append another frame to the right of this frame
+        # height must be the same
+        if frame.height() != self.height():
+            raise RuntimeError("height must be the same to append to the right")
+
+        data = np.ascontiguousarray(np.concatenate([self._data, frame._data], axis=1))
+        if inplace:
+            self._data = data
+            return
+        else:
+            return Frame(data)
+
+    def append_left(self, frame: Frame, inplace=False):
+        # append another frame to the left of this frame
+        # height must be the same
+        if frame.height() != self.height():
+            raise RuntimeError("height must be the same to append to the left")
+
+        data = np.ascontiguousarray(np.concatenate([frame._data, self._data], axis=1))
+        if inplace:
+            self._data = data
+            return
+        else:
+            return Frame(data)
 
     def resize(
         self,
