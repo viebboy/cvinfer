@@ -313,13 +313,13 @@ class Frame:
             y1 = min(y1, self.height())
             return Frame(self.data()[y0:y1, x0:x1, :])
 
-    def draw_point(self, point: Point):
+    def draw_point(self, point: Point, thickness: int = -1):
         self._data = cv2.circle(
             self.data(),
             center=point.int().tuple(),
             radius=point.radius(),
             color=point.color().rgb(),
-            thickness=-1,
+            thickness=thickness,
         )
 
     def draw_points(self, points: list[Point]):
