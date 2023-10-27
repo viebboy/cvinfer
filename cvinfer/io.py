@@ -319,7 +319,7 @@ class VideoWriter:
         return self._metadata
 
     def write(self, frame):
-        if self._cv_writer is None:
+        if self._metadata["frame_count"] == 0 and self._video_file is not None:
             height = frame.height()
             width = frame.width()
             self._cv_writer = cv2.VideoWriter(
@@ -328,9 +328,17 @@ class VideoWriter:
                 self._metadata["fps"],
                 (width, height),
             )
-        # note that opencv has default BGR format so we need to flip
-        # because Frame data is in RGB
-        self._cv_writer.write(frame.data()[:, :, ::-1])
+
+        if self._cv_writer is not None:
+            # note that opencv has default BGR format so we need to flip
+            # because Frame data is in RGB
+            self._cv_writer.write(frame.data()[:, :, ::-1])
+        else:
+            cv2.namedWindow("cvinfer.io.VideoWriter", cv2.WINDOW_NORMAL)
+            cv2.imshow("cvinfer.io.VideoWriter", frame.bgr())
+            ch = cv2.waitKey(1)
+            if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                raise KeyboardInterrupt()
         self._metadata["frame_count"] += 1
 
     def close(self):
