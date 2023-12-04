@@ -218,11 +218,11 @@ class VideoReader:
                     self.close()
                     break
 
-    def get_num_frames(self):
+    def get_frame_count(self):
         return int(self._video_handle.get(cv2.CAP_PROP_FRAME_COUNT))
 
     def __len__(self):
-        return self.get_num_frames()
+        return self.get_frame_count()
 
 
 class RTSPReader(VideoReader):
