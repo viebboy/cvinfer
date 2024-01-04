@@ -37,8 +37,10 @@ if __name__ == "__main__":
 
     onnx_local_path = os.path.join(output_dir, "yolox_x.onnx")
 
-    onnx_remote_path = "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_x.onnx"
-    if not os.path.exists(onnx_path):
+    onnx_remote_path = (
+        "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_x.onnx"
+    )
+    if not os.path.exists(onnx_local_path):
         urllib.request.urlretrieve(onnx_remote_path, onnx_local_path)
 
     # use the artifacts via cvinfer.common.OnnxModel
