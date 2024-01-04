@@ -32,10 +32,6 @@ import random
 import importlib.util
 
 
-logger.warning(
-    "Convention for BoundingBox: (x, y) corresponds to coordinates on the (width, height) dimension"
-)
-
 INTERPOLATIONS = {
     "cubic": cv2.INTER_CUBIC,
     "linear": cv2.INTER_LINEAR,
@@ -546,6 +542,41 @@ class Frame:
             )
             return Frame(new_frame_data)
 
+    def masking(self, mask: SegmentMask, inplace: bool = False):
+        """
+        Apply a mask to the frame
+        """
+
+        if inplace:
+            self._data[:, :, :] = (self._data * mask.data()).astype(np.uint8)
+        else:
+            return Frame((self._data * mask.data()).astype(np.uint8))
+
+    def overlay_mask(self, mask: SegmentMask, alpha: float, inplace: bool = False):
+        """
+        Overlay mask with color on top the image
+        """
+        assert alpha >= 0 and alpha <= 1
+
+        R, G, B = mask.color().rgb()
+        color_mask = np.concatenate([mask.data() * R, mask.data() * G, mask.data() * B], axis=2)
+
+        # combine
+        data = ((1 - alpha) * self._data + alpha * color_mask).astype(np.uint8)
+
+        if inplace:
+            self._data = data
+        else:
+            return Frame(data)
+
+    def show(self):
+        """
+        Show this frame and exit when any key is pressed
+        """
+        cv2.imshow("Frame", self.bgr())
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
 
 class BoundingBox:
     """
@@ -1047,3 +1078,49 @@ class KeyPoint(Point):
             self.color(),
             self.radius(),
         )
+
+
+class SegmentMask:
+    """
+    Datastructure for segmentation mask
+    """
+
+    def __init__(self, data: Any, score: float, color: Color = Color()):
+        # must be numpy array
+        assert isinstance(data, np.ndarray)
+        # must be 2 dimension
+        assert data.ndim == 2
+        # must be between [0,1]
+
+        assert data.min() >= 0 and data.max() <= 1
+
+        # we save by extending last dim to H x W x 1
+        self._data = np.expand_dims(data, axis=-1)
+
+        # original score or confidence
+        self._score = score
+        self._color = color
+
+    def data(self):
+        return self._data
+
+    def color(self):
+        return self._color
+
+    def set_color(self, color: Color):
+        self._color = color
+
+    def score(self):
+        return self._score
+
+    def as_frame(self) -> Frame:
+        """
+        Return mask as a Frame object
+        """
+        # replicate mask to 3 channels
+        data = np.concatenate([self.data()] * 3, axis=2)
+
+        # convert to uint8
+        data = (data * 255).astype(np.uint8)
+
+        return Frame(data)

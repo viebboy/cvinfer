@@ -28,7 +28,7 @@ try:
     import requests
 
     has_dep = True
-except Exception as error:
+except Exception:
     print("package cvinfer WARNING: (re)install the dependencies in requirements.txt")
     has_dep = False
 
