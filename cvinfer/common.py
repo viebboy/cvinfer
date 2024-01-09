@@ -143,15 +143,15 @@ class OnnxModel:
         onnx_path,
         processor_path=None,
         configuration_path=None,
-        execution_provider="CPUExecutionProvider",
+        execution_provider="CUDAExecutionProvider",
+        gpu_mem_limit=6,  # in GB
+        device_id=0,
     ):
         # load preprocessing function
         if processor_path is None:
             processor_path = onnx_path.replace(".onnx", ".processor.py")
 
-        if not os.path.exists(processor_path):
-            raise FileNotFoundError(processor_path)
-
+        assert os.path.exists(processor_path)
         self.preprocess_function = load_module(processor_path, "preprocess")
         self.postprocess_function = load_module(processor_path, "postprocess")
 
@@ -162,12 +162,26 @@ class OnnxModel:
             logger.info(f"\t {provider}")
 
         logger.info(f"trying to run with execution provider: {execution_provider}")
-        self.session = ORT.InferenceSession(
-            onnx_path,
-            providers=[
-                execution_provider,
-            ],
-        )
+        if execution_provider == "CUDAExecutionProvider" and execution_provider in avail_providers:
+            providers = [
+                (
+                    "CUDAExecutionProvider",
+                    {
+                        "device_id": device_id,
+                        "arena_extend_strategy": "kNextPowerOfTwo",
+                        "gpu_mem_limit": int(
+                            gpu_mem_limit * 1024 * 1024 * 1024
+                        ),  # convert to bytes
+                        "cudnn_conv_algo_search": "EXHAUSTIVE",
+                        "do_copy_in_default_stream": False,
+                        "cudnn_conv_use_max_workspace": "0",
+                    },
+                ),
+            ]
+        else:
+            providers = [execution_provider]
+
+        self.session = ORT.InferenceSession(onnx_path, providers=providers)
 
         self.input_names = [input_.name for input_ in self.session.get_inputs()]
 
