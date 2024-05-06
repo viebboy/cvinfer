@@ -213,9 +213,13 @@ class OnnxModel:
         else:
             assert isinstance(inputs, Frame)
 
-        # calling preprocess
         model_inputs, metadata = self.preprocess_function(inputs, self.config["preprocessing"])
+        model_outputs = self.forward(model_inputs)
+        outputs = self.postprocess_function(model_outputs, metadata, self.config["postprocessing"])
 
+        return outputs
+
+    def forward(self, model_inputs):
         # compute ONNX Runtime output prediction
         if len(self.input_names) == 1:
             ort_inputs = {self.input_names[0]: model_inputs}
@@ -223,10 +227,7 @@ class OnnxModel:
             ort_inputs = {name: value for name, value in zip(self.input_names, model_inputs)}
 
         model_outputs = self.session.run(None, ort_inputs)
-
-        outputs = self.postprocess_function(model_outputs, metadata, self.config["postprocessing"])
-
-        return outputs
+        return model_outputs
 
 
 class Frame:
