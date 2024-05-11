@@ -6,3 +6,4 @@ dill
 drawline
 loguru
 GitPython
+requests
