@@ -138,14 +138,30 @@ class OnnxModel:
     base implementation of the onnx inference model
     """
 
+    @classmethod
+    def from_dir(
+        asset_dir: str,
+        relative_onnx_path: str = "model.onnx",
+        relative_processor_path: str = "processor.py",
+        relative_configuration_path: str = "configuration.json",
+        execution_provider="CPUExecutionProvider",
+        **kwargs: dict,
+    ):
+        return OnnxModel(
+            onnx_path=os.path.join(asset_dir, relative_onnx_path),
+            processor_path=os.path.join(asset_dir, relative_processor_path),
+            configuration_path=os.path.join(asset_dir, relative_configuration_path),
+            execution_provider=execution_provider,
+            **kwargs,
+        )
+
     def __init__(
         self,
         onnx_path,
         processor_path=None,
         configuration_path=None,
-        execution_provider="CUDAExecutionProvider",
-        gpu_mem_limit=6,  # in GB
-        device_id=0,
+        execution_provider="CPUExecutionProvider",
+        **kwargs: dict,
     ):
         # load preprocessing function
         if processor_path is None:
@@ -163,14 +179,18 @@ class OnnxModel:
 
         logger.info(f"trying to run with execution provider: {execution_provider}")
         if execution_provider == "CUDAExecutionProvider" and execution_provider in avail_providers:
+            assert "device_id" in kwargs, "device_id must be provided for CUDAExecutionProvider"
+            assert (
+                "gpu_mem_limit" in kwargs
+            ), "gpu_mem_limit must be provided for CUDAExecutionProvider"
             providers = [
                 (
                     "CUDAExecutionProvider",
                     {
-                        "device_id": device_id,
+                        "device_id": kwargs["device_id"],
                         "arena_extend_strategy": "kNextPowerOfTwo",
                         "gpu_mem_limit": int(
-                            gpu_mem_limit * 1024 * 1024 * 1024
+                            kwargs["gpu_mem_limit"] * 1024 * 1024 * 1024
                         ),  # convert to bytes
                         "cudnn_conv_algo_search": "EXHAUSTIVE",
                         "do_copy_in_default_stream": False,
