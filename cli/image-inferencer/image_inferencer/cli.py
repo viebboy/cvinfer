@@ -97,14 +97,23 @@ def main():
     args = parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
+    onnx_path = os.path.join(args.model_dir, args.relative_onnx_path)
+    processor_path = os.path.join(args.model_dir, args.relative_processor_path)
+    configuration_path = os.path.join(args.model_dir, args.relative_config_path)
+    if not os.path.exists(onnx_path):
+        raise FileNotFoundError(f"onnx path does not exist: {onnx_path}")
+    if not os.path.exists(processor_path):
+        raise FileNotFoundError(f"processor path does not exist: {processor_path}")
+    if not os.path.exists(configuration_path):
+        raise FileNotFoundError(f"configuration path does not exist: {configuration_path}")
+
     if args.data_type == "blob":
         process_image_blob(
             data_dir=args.data_dir,
             output_dir=args.output_dir,
-            asset_dir=args.model_dir,
-            relative_onnx_path=args.relative_onnx_path,
-            relative_config_path=args.relative_config_path,
-            relative_processor_path=args.relative_processor_path,
+            onnx_path=onnx_path,
+            configuration_path=configuration_path,
+            processor_path=processor_path,
             mem_limit=args.mem_limit,
             batch_size=args.batch_size,
             nb_worker=args.nb_worker,
@@ -114,10 +123,9 @@ def main():
         process_image_dir(
             data_dir=args.data_dir,
             output_dir=args.output_dir,
-            asset_dir=args.model_dir,
-            relative_onnx_path=args.relative_onnx_path,
-            relative_config_path=args.relative_config_path,
-            relative_processor_path=args.relative_processor_path,
+            onnx_path=onnx_path,
+            configuration_path=configuration_path,
+            processor_path=processor_path,
             mem_limit=args.mem_limit,
             batch_size=args.batch_size,
             nb_worker=args.nb_worker,
