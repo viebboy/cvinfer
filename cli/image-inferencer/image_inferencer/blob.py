@@ -19,6 +19,7 @@ Proprietary License
 
 from __future__ import annotations
 import os
+import sys
 import numpy as np
 import json
 import traceback
@@ -217,12 +218,20 @@ class Processor(CTX.Process):
         try:
             return self.run_()
         except BaseException as error:
+            if self.writer is not None:
+                self.writer.request_close()
+            if self.preprocess is not None:
+                self.preprocess.request_close()
+
             print("====================================================")
             traceback.print_exc()
             print(f"worker-{self.worker_index} has exception: {error}")
             print("====================================================")
+            sys.exit(1)
 
     def run_(self):
+        self.writer = None
+        self.preprocess = None
         # compute total number of images that need to process
         total = 0
         for bin_file, idx_file in self.image_blob_files:
@@ -242,7 +251,7 @@ class Processor(CTX.Process):
             if self.execution_provider == "CUDAExecutionProvider"
             else None,
         )
-        preprocess = Preprocessor(
+        self.preprocess = Preprocessor(
             processor_path=self.processor_path,
             configuration_path=self.configuration_path,
             image_blob_files=self.image_blob_files,
@@ -250,15 +259,15 @@ class Processor(CTX.Process):
             worker_index=self.worker_index,
             total_sample=total,
         )
-        preprocess.start()
-        writer = DataWriter(
+        self.preprocess.start()
+        self.writer = DataWriter(
             processor_path=self.processor_path,
             configuration_path=self.configuration_path,
             nb_input_blob=len(self.image_blob_files),
             output_dir=self.output_dir,
             worker_index=self.worker_index,
         )
-        writer.start()
+        self.writer.start()
         count = 0
 
         # print every 2 %
@@ -266,31 +275,31 @@ class Processor(CTX.Process):
         prog_bar = tqdm(total=total, desc=f"Worker-{self.worker_index:02d}", unit=" frame")
 
         while True:
-            if preprocess.has_exception():
-                writer.request_close()
+            if self.preprocess.has_exception():
+                self.writer.request_close()
                 raise RuntimeError(f"Preprocessor-{self.worker_index:02d} has exception")
 
-            if writer.has_exception():
-                preprocess.request_close()
+            if self.writer.has_exception():
+                self.preprocess.request_close()
                 raise RuntimeError(f"DataWriter-{self.worker_index:02d} has exception")
 
-            if preprocess.has_finished() and not preprocess.has_frame():
+            if self.preprocess.has_finished() and not self.preprocess.has_frame():
                 break
 
-            if preprocess.has_frame():
-                blob_idx, inputs, metadata = preprocess.get_frame()
+            if self.preprocess.has_frame():
+                blob_idx, inputs, metadata = self.preprocess.get_frame()
                 count += len(inputs)
                 outputs = estimator.forward(inputs)
                 # wait if queue is larger than 100
-                while writer.queue_size() > 100:
+                while self.writer.queue_size() > 100:
                     time.sleep(0.1)
-                writer.put_data((blob_idx, outputs, metadata))
+                self.writer.put_data((blob_idx, outputs, metadata))
 
                 if count >= milestone:
                     prog_bar.update(count)
                     milestone = min(total, milestone + total // 50)
 
-        writer.request_close()
+        self.writer.request_close()
         print(
             f"Worker-{self.worker_index:02d} processing is done. "
             f"Waiting for DataWriter-{self.worker_index:02d} to finalize"
