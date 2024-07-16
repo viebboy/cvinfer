@@ -173,8 +173,7 @@ class DataWriter(threading.Thread):
             else:
                 time.sleep(0.001)
 
-        for blob in self.blobs:
-            blob.close()
+        blob.close()
 
         print(f"DataWriter-{self.worker_index:02d} is done")
 
