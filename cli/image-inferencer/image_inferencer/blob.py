@@ -83,6 +83,8 @@ class Preprocessor(threading.Thread):
             cur_metadata = []
             blob = BinaryBlob(binary_file=bin_file, index_file=idx_file, mode="r")
             for i in range(len(blob)):
+                if self.external_event.is_set():
+                    return
                 frame_data = blob.read_index(i)
                 frame = Frame(frame_data)
                 processed_input, metadata = self.preprocess_function(
@@ -223,8 +225,10 @@ class Processor(CTX.Process):
         except BaseException as error:
             if self.writer is not None:
                 self.writer.request_close()
+                self.writer.join()
             if self.preprocess is not None:
                 self.preprocess.request_close()
+                self.preprocess.join()
 
             print("====================================================")
             traceback.print_exc()

@@ -75,6 +75,9 @@ class Preprocessor(threading.Thread):
             config = json.loads(fid.read())
 
         for img_file in self.image_files:
+            if self.external_event.is_set():
+                return
+
             cur_batch = []
             cur_metadata = []
             cur_filename = []
@@ -218,6 +221,13 @@ class Processor(CTX.Process):
         try:
             return self.run_()
         except BaseException as error:
+            if self.writer is not None:
+                self.writer.request_close()
+                self.writer.join()
+            if self.preprocess is not None:
+                self.preprocess.request_close()
+                self.preprocess.join()
+
             print("====================================================")
             traceback.print_exc()
             print(f"Worker-{self.worker_index} has exception: {error}")
