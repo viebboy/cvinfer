@@ -76,6 +76,9 @@ class Preprocessor(threading.Thread):
             self.config = json.loads(fid.read())
 
         for blob_idx, (bin_file, idx_file) in enumerate(self.image_blob_files):
+            if self.external_event.is_set():
+                return
+
             cur_batch = []
             cur_metadata = []
             blob = BinaryBlob(binary_file=bin_file, index_file=idx_file, mode="r")
