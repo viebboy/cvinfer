@@ -1,0 +1,9 @@
+numpy
+opencv-python
+opencv-contrib-python
+onnxruntime-gpu==1.17.1
+dill
+drawline
+loguru
+GitPython
+requests
