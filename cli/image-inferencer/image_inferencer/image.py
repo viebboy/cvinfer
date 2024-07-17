@@ -130,14 +130,18 @@ class DataWriter(threading.Thread):
         self,
         processor_path: str,
         configuration_path: str,
+        nb_input_blob: str,
         output_dir: str,
         worker_index: int,
+        batch_size: int,
     ):
         super().__init__()
         self.processor_path = processor_path
         self.configuration_path = configuration_path
         self.worker_index = worker_index
         self.output_dir = output_dir
+        self.nb_input_blob = nb_input_blob
+        self.batch_size = batch_size
         self.data = Queue()
         self.internal_event = threading.Event()
         self.external_event = threading.Event()
@@ -159,25 +163,39 @@ class DataWriter(threading.Thread):
             # self.config is a dictionary
             config = json.loads(fid.read())
 
-        binary_file = os.path.join(self.output_dir, f"{self.worker_index:09d}.bin")
-        index_file = os.path.join(self.output_dir, f"{self.worker_index:09d}.idx")
-        blob = BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w")
-        sample_idx = 0
+        self.blobs = []
+        for idx in range(self.nb_input_blob):
+            binary_file = os.path.join(self.output_dir, f"{idx:09d}.bin")
+            index_file = os.path.join(self.output_dir, f"{idx:09d}.idx")
+            self.blobs.append(BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w"))
 
+        self.blob_count = [0 for _ in self.blobs]
         while True:
             if self.external_event.is_set() and self.data.empty():
                 break
 
             if not self.data.empty():
-                blob_idx, outputs, metadata, image_files = self.data.get()
-                for output_, metadata_, file_ in zip(outputs, metadata, image_files):
-                    output = postprocess_function(output_, metadata_, config["postprocessing"])
-                    blob.write_index(sample_idx, (file_, output))
-                    sample_idx += 1
+                blob_idx, outputs, metadata = self.data.get()
+                if self.batch_size == 1:
+                    output = postprocess_function(outputs, metadata, config["postprocessing"])
+                    self.blobs[blob_idx].write_index(self.blob_count[blob_idx], output)
+                    self.blob_count[blob_idx] += 1
+                else:
+                    # outputs is a list of numpy array, with 1st dim being batch size
+                    # we need to unwrap
+                    for bx in range(self.batch_size):
+                        output = [out[bx] for out in outputs]
+                        output = postprocess_function(
+                            output, metadata[bx], config["postprocessing"]
+                        )
+                        self.blobs[blob_idx].write_index(self.blob_count[blob_idx], output)
+                        self.blob_count[blob_idx] += 1
+
             else:
                 time.sleep(0.001)
 
-        blob.close()
+        for blob in self.blobs:
+            blob.close()
 
         print(f"DataWriter-{self.worker_index:02d} is done")
 

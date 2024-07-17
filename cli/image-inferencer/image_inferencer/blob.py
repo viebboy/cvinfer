@@ -132,6 +132,7 @@ class DataWriter(threading.Thread):
         nb_input_blob: str,
         output_dir: str,
         worker_index: int,
+        batch_size: int,
     ):
         super().__init__()
         self.processor_path = processor_path
@@ -139,6 +140,7 @@ class DataWriter(threading.Thread):
         self.worker_index = worker_index
         self.output_dir = output_dir
         self.nb_input_blob = nb_input_blob
+        self.batch_size = batch_size
         self.data = Queue()
         self.internal_event = threading.Event()
         self.external_event = threading.Event()
@@ -173,10 +175,21 @@ class DataWriter(threading.Thread):
 
             if not self.data.empty():
                 blob_idx, outputs, metadata = self.data.get()
-                for output_, metadata_ in zip(outputs, metadata):
-                    output = postprocess_function(output_, metadata_, config["postprocessing"])
+                if self.batch_size == 1:
+                    output = postprocess_function(outputs, metadata, config["postprocessing"])
                     self.blobs[blob_idx].write_index(self.blob_count[blob_idx], output)
                     self.blob_count[blob_idx] += 1
+                else:
+                    # outputs is a list of numpy array, with 1st dim being batch size
+                    # we need to unwrap
+                    for bx in range(self.batch_size):
+                        output = [out[bx] for out in outputs]
+                        output = postprocess_function(
+                            output, metadata[bx], config["postprocessing"]
+                        )
+                        self.blobs[blob_idx].write_index(self.blob_count[blob_idx], output)
+                        self.blob_count[blob_idx] += 1
+
             else:
                 time.sleep(0.001)
 
@@ -273,6 +286,7 @@ class Processor(CTX.Process):
             nb_input_blob=len(self.image_blob_files),
             output_dir=self.output_dir,
             worker_index=self.worker_index,
+            batch_size=self.batch_size,
         )
         self.writer.start()
         count = 0
