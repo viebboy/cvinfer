@@ -46,6 +46,8 @@ class Preprocessor(threading.Thread):
         processor_path: str,
         configuration_path: str,
         image_blob_files: list[str],
+        start_idx: int,
+        stop_idx: int,
         total_sample,
         batch_size,
         worker_index,
@@ -54,6 +56,8 @@ class Preprocessor(threading.Thread):
         self.processor_path = processor_path
         self.configuration_path = configuration_path
         self.image_blob_files = image_blob_files
+        self.start_idx = start_idx
+        self.stop_idx = stop_idx
         self.total_sample = total_sample
         self.batch_size = batch_size
         self.frames = Queue()
@@ -75,10 +79,11 @@ class Preprocessor(threading.Thread):
             # self.config is a dictionary
             self.config = json.loads(fid.read())
 
-        for blob_idx, (bin_file, idx_file) in enumerate(self.image_blob_files):
+        for blob_idx in range(self.start_idx, self.stop_idx):
             if self.external_event.is_set():
                 return
 
+            bin_file, idx_file = self.image_blob_files[blob_idx]
             cur_batch = []
             cur_metadata = []
             blob = BinaryBlob(binary_file=bin_file, index_file=idx_file, mode="r")
@@ -129,7 +134,8 @@ class DataWriter(threading.Thread):
         self,
         processor_path: str,
         configuration_path: str,
-        nb_input_blob: str,
+        start_idx: int,
+        stop_idx: int,
         output_dir: str,
         worker_index: int,
         batch_size: int,
@@ -137,9 +143,10 @@ class DataWriter(threading.Thread):
         super().__init__()
         self.processor_path = processor_path
         self.configuration_path = configuration_path
+        self.start_idx = start_idx
+        self.stop_idx = stop_idx
         self.worker_index = worker_index
         self.output_dir = output_dir
-        self.nb_input_blob = nb_input_blob
         self.batch_size = batch_size
         self.data = Queue()
         self.internal_event = threading.Event()
@@ -162,13 +169,13 @@ class DataWriter(threading.Thread):
             # self.config is a dictionary
             config = json.loads(fid.read())
 
-        self.blobs = []
-        for idx in range(self.nb_input_blob):
+        self.blobs = {}
+        for idx in range(self.start_idx, self.stop_idx):
             binary_file = os.path.join(self.output_dir, f"{idx:09d}.bin")
             index_file = os.path.join(self.output_dir, f"{idx:09d}.idx")
-            self.blobs.append(BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w"))
+            self.blobs[idx] = BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w")
 
-        self.blob_count = [0 for _ in self.blobs]
+        self.blob_count = {idx: 0 for idx in range(self.start_idx, self.stop_idx)}
         while True:
             if self.external_event.is_set() and self.data.empty():
                 break
@@ -184,7 +191,7 @@ class DataWriter(threading.Thread):
                     # outputs is a list of numpy array, with 1st dim being batch size
                     # we need to unwrap
                     for bx in range(self.batch_size):
-                        output = [out[bx:bx+1] for out in outputs]
+                        output = [out[bx : bx + 1] for out in outputs]
                         output = postprocess_function(
                             output, metadata[bx], config["postprocessing"]
                         )
@@ -194,7 +201,7 @@ class DataWriter(threading.Thread):
             else:
                 time.sleep(0.001)
 
-        for blob in self.blobs:
+        for blob in self.blobs.values():
             blob.close()
 
         print(f"DataWriter-{self.worker_index:02d} is done")
@@ -213,6 +220,7 @@ class Processor(CTX.Process):
     def __init__(
         self,
         image_blob_files: list[tuple[str, str]],
+        file_per_worker: int,
         output_dir: str,
         onnx_path: str,
         processor_path: str,
@@ -231,6 +239,7 @@ class Processor(CTX.Process):
         self.mem_limit = mem_limit
         self.batch_size = batch_size
         self.image_blob_files = image_blob_files
+        self.file_per_worker = file_per_worker
         self.output_dir = output_dir
 
     def run(self):
@@ -253,9 +262,13 @@ class Processor(CTX.Process):
     def run_(self):
         self.writer = None
         self.preprocess = None
+        start_idx = self.worker_index * self.file_per_worker
+        stop_idx = min((self.worker_index + 1) * self.file_per_worker, len(self.image_blob_files))
+        image_blob_files = self.image_blob_files[start_idx:stop_idx]
+
         # compute total number of images that need to process
         total = 0
-        for bin_file, idx_file in self.image_blob_files:
+        for bin_file, idx_file in image_blob_files:
             blob = BinaryBlob(binary_file=bin_file, index_file=idx_file, mode="r")
             total += len(blob)
             blob.close()
@@ -276,6 +289,8 @@ class Processor(CTX.Process):
             processor_path=self.processor_path,
             configuration_path=self.configuration_path,
             image_blob_files=self.image_blob_files,
+            start_idx=start_idx,
+            stop_idx=stop_idx,
             batch_size=self.batch_size,
             worker_index=self.worker_index,
             total_sample=total,
@@ -284,7 +299,8 @@ class Processor(CTX.Process):
         self.writer = DataWriter(
             processor_path=self.processor_path,
             configuration_path=self.configuration_path,
-            nb_input_blob=len(self.image_blob_files),
+            start_idx=start_idx,
+            stop_idx=stop_idx,
             output_dir=self.output_dir,
             worker_index=self.worker_index,
             batch_size=self.batch_size,
@@ -382,17 +398,14 @@ def process_image_blob(
 
     nb_worker = min(nb_worker, len(bin_files))
     file_per_worker = int(np.ceil(len(bin_files) / nb_worker))
+    image_files = [(bin_file, idx_file) for bin_file, idx_file in zip(bin_files, idx_files)]
 
     processes = []
     start_time = time.time()
     for wrk_index in range(nb_worker):
-        bin_files_ = bin_files[wrk_index * file_per_worker : (wrk_index + 1) * file_per_worker]
-        idx_files_ = idx_files[wrk_index * file_per_worker : (wrk_index + 1) * file_per_worker]
-
-        image_files = [(bin_files_[i], idx_files_[i]) for i in range(len(bin_files_))]
-
         p = Processor(
             image_blob_files=image_files,
+            file_per_worker=file_per_worker,
             output_dir=output_dir,
             onnx_path=onnx_path,
             processor_path=processor_path,
