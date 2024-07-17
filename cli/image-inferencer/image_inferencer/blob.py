@@ -176,14 +176,15 @@ class DataWriter(threading.Thread):
             if not self.data.empty():
                 blob_idx, outputs, metadata = self.data.get()
                 if self.batch_size == 1:
-                    output = postprocess_function(outputs, metadata, config["postprocessing"])
+                    # metadata is a list of 1 element so we need to unwrap
+                    output = postprocess_function(outputs, metadata[0], config["postprocessing"])
                     self.blobs[blob_idx].write_index(self.blob_count[blob_idx], output)
                     self.blob_count[blob_idx] += 1
                 else:
                     # outputs is a list of numpy array, with 1st dim being batch size
                     # we need to unwrap
                     for bx in range(self.batch_size):
-                        output = [out[bx] for out in outputs]
+                        output = [out[bx:bx+1] for out in outputs]
                         output = postprocess_function(
                             output, metadata[bx], config["postprocessing"]
                         )
@@ -291,8 +292,6 @@ class Processor(CTX.Process):
         self.writer.start()
         count = 0
 
-        # print every 2 %
-        milestone = total // 50
         prog_bar = tqdm(total=total, desc=f"Worker-{self.worker_index:02d}", unit=" frame")
 
         while True:
@@ -310,16 +309,14 @@ class Processor(CTX.Process):
             if self.preprocess.has_frame():
                 blob_idx, inputs, metadata = self.preprocess.get_frame()
                 count += len(inputs)
+                prog_bar.update(len(inputs))
                 outputs = estimator.forward(inputs)
                 # wait if queue is larger than 100
                 while self.writer.queue_size() > 100:
                     time.sleep(0.1)
                 self.writer.put_data((blob_idx, outputs, metadata))
 
-                if count >= milestone:
-                    prog_bar.update(count)
-                    milestone = min(total, milestone + total // 50)
-
+        prog_bar.close()
         self.writer.request_close()
         print(
             f"Worker-{self.worker_index:02d} processing is done. "
