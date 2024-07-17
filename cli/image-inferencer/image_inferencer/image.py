@@ -46,7 +46,6 @@ class Preprocessor(threading.Thread):
         processor_path: str,
         configuration_path: str,
         image_files: list[str],
-        total_sample,
         batch_size,
         worker_index,
     ):
@@ -130,18 +129,14 @@ class DataWriter(threading.Thread):
         self,
         processor_path: str,
         configuration_path: str,
-        nb_input_blob: str,
         output_dir: str,
         worker_index: int,
-        batch_size: int,
     ):
         super().__init__()
         self.processor_path = processor_path
         self.configuration_path = configuration_path
         self.worker_index = worker_index
         self.output_dir = output_dir
-        self.nb_input_blob = nb_input_blob
-        self.batch_size = batch_size
         self.data = Queue()
         self.internal_event = threading.Event()
         self.external_event = threading.Event()
@@ -163,40 +158,35 @@ class DataWriter(threading.Thread):
             # self.config is a dictionary
             config = json.loads(fid.read())
 
-        self.blobs = []
-        for idx in range(self.nb_input_blob):
-            binary_file = os.path.join(self.output_dir, f"{idx:09d}.bin")
-            index_file = os.path.join(self.output_dir, f"{idx:09d}.idx")
-            self.blobs.append(BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w"))
-
-        self.blob_count = [0 for _ in self.blobs]
+        binary_file = os.path.join(self.output_dir, f"{self.worker_index:09d}.bin")
+        index_file = os.path.join(self.output_dir, f"{self.worker_index:09d}.idx")
+        blob = BinaryBlob(binary_file=binary_file, index_file=index_file, mode="w")
+        sample_idx = 0
         while True:
             if self.external_event.is_set() and self.data.empty():
                 break
 
             if not self.data.empty():
-                blob_idx, outputs, metadata, img_files = self.data.get()
-                if self.batch_size == 1:
+                outputs, metadata, img_files = self.data.get()
+                if len(metadata) == 1:
                     output = postprocess_function(outputs, metadata[0], config["postprocessing"])
-                    self.blobs[blob_idx].write_index(self.blob_count[blob_idx], (img_files[0], output))
-                    self.blob_count[blob_idx] += 1
+                    blob.write_index(sample_idx, (img_files[0], output))
+                    sample_idx += 1
                 else:
                     # outputs is a list of numpy array, with 1st dim being batch size
                     # we need to unwrap
-                    for bx in range(self.batch_size):
+                    for bx in range(len(metadata)):
                         output = [out[bx:bx+1] for out in outputs]
                         output = postprocess_function(
                             output, metadata[bx], config["postprocessing"]
                         )
-                        self.blobs[blob_idx].write_index(self.blob_count[blob_idx], (img_files[bx], output))
-                        self.blob_count[blob_idx] += 1
+                        blob.write_index(sample_idx, (img_files[bx], output))
+                        sample_idx += 1
 
             else:
                 time.sleep(0.001)
 
-        for blob in self.blobs:
-            blob.close()
-
+        blob.close()
         print(f"DataWriter-{self.worker_index:02d} is done")
 
     def put_data(self, data):
@@ -256,7 +246,6 @@ class Processor(CTX.Process):
         self.writer = None
         self.preprocess = None
         # compute total number of images that need to process
-        total = 0
         image_files = [
             os.path.join(self.image_dir, f)
             for f in os.listdir(self.image_dir)
@@ -285,7 +274,6 @@ class Processor(CTX.Process):
             image_files=image_files,
             batch_size=self.batch_size,
             worker_index=self.worker_index,
-            total_sample=total,
         )
         self.preprocess.start()
         self.writer = DataWriter(
@@ -297,7 +285,7 @@ class Processor(CTX.Process):
         self.writer.start()
         count = 0
 
-        prog_bar = tqdm(total=total, desc=f"Worker-{self.worker_index:02d}", unit=" frame")
+        prog_bar = tqdm(total=len(image_files), desc=f"Worker-{self.worker_index:02d}", unit=" frame")
 
         while True:
             if self.preprocess.has_exception():
@@ -312,14 +300,14 @@ class Processor(CTX.Process):
                 break
 
             if self.preprocess.has_frame():
-                blob_idx, inputs, metadata, image_files = self.preprocess.get_frame()
+                inputs, metadata, image_files = self.preprocess.get_frame()
                 count += len(inputs)
                 prog_bar.update(len(inputs))
                 outputs = estimator.forward(inputs)
                 # wait if queue is larger than 100
                 while self.writer.queue_size() > 100:
                     time.sleep(0.1)
-                self.writer.put_data((blob_idx, outputs, metadata, image_files))
+                self.writer.put_data((outputs, metadata, image_files))
 
         self.writer.request_close()
         print(
