@@ -41,6 +41,17 @@ INTERPOLATIONS = {
     "lanczos": cv2.INTER_LANCZOS4,
 }
 
+MARKERS = [
+    "circle",
+    "cross",
+    "tilted_cross",
+    "star",
+    "diamond",
+    "square",
+    "triangle_up",
+    "triangle_down",
+]
+
 
 def load_module(module_file, attribute, module_name=None):
     if module_name is None:
@@ -345,18 +356,83 @@ class Frame:
             y1 = min(y1, self.height())
             return Frame(self.data()[y0:y1, x0:x1, :])
 
-    def draw_point(self, point: Point, thickness: int = -1):
-        self._data = cv2.circle(
-            self.data(),
-            center=point.int().tuple(),
-            radius=point.radius(),
-            color=point.color().rgb(),
-            thickness=thickness,
-        )
+    def draw_point(self, point: Point, thickness: int = -1, marker="circle"):
+        assert marker in MARKERS
+        if marker == "circle":
+            self._data = cv2.circle(
+                self.data(),
+                center=point.int().tuple(),
+                radius=point.radius(),
+                color=point.color().rgb(),
+                thickness=thickness,
+            )
+        elif marker == "cross":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_CROSS,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "tilted_cross":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_TILTED_CROSS,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "star":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_STAR,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "diamond":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_DIAMOND,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "square":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_SQUARE,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "triangle_up":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_TRIANGLE_UP,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
+        elif marker == "triangle_down":
+            self._data = cv2.drawMarker(
+                img=self.data(),
+                position=point.int().tuple(),
+                color=point.color().rgb(),
+                markerType=cv2.MARKER_TRIANGLE_DOWN,
+                markerSize=point.radius(),
+                thickness=thickness,
+            )
 
-    def draw_points(self, points: list[Point]):
+    def draw_points(self, points: list[Point], thickness: int = -1, marker="circle"):
         for point in points:
-            self.draw_point(point)
+            self.draw_point(point, thickness, marker)
 
     def draw_line(
         self,
